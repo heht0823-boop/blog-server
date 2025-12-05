@@ -7,6 +7,7 @@ const { errorHandler, addTraceId } = require("./middleware/errorHandler");
 const { testDBConnection } = require("./config/db");
 
 const userRouter = require("./routes/user");
+const corsMiddleware = require("./middleware/cors");
 
 const app = express();
 
@@ -17,31 +18,7 @@ app.use(helmet());
 app.use(addTraceId);
 
 // ===== CORS =====
-app.use((req, res, next) => {
-  const allowedOrigins = (
-    process.env.CORS_ORIGIN || "http://localhost:5173"
-  ).split(",");
-  const origin = req.headers.origin;
-
-  if (
-    allowedOrigins.includes(origin) ||
-    process.env.NODE_ENV === "development"
-  ) {
-    res.header("Access-Control-Allow-Origin", origin || allowedOrigins[0]);
-    res.header(
-      "Access-Control-Allow-Methods",
-      "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-    );
-    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-    res.header("Access-Control-Allow-Credentials", "true");
-  }
-
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(200);
-  }
-
-  next();
-});
+app.use(corsMiddleware);
 
 // ===== 全局速率限制 =====
 const globalRateLimiter = rateLimit({

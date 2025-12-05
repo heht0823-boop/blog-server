@@ -1,5 +1,6 @@
 const userService = require("../services/userService");
 const jwtUtil = require("../utils/jwt");
+const { upload } = require("../utils/upload");
 const {
   successResponse,
   errorResponse,
@@ -254,6 +255,40 @@ class UserController {
       }
 
       successResponse(res, null, "密码更新成功");
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /**
+   * 上传用户头像
+   */
+  uploadAvatar = asyncHandler(async (req, res, next) => {
+    try {
+      // 使用 upload.single('avatar') 作为中间件处理文件上传
+      upload.single('avatar')(req, res, async (err) => {
+        if (err) {
+          return errorResponse(res, err, err.message, 400);
+        }
+
+        if (!req.file) {
+          return errorResponse(res, null, "请选择要上传的头像文件", 400);
+        }
+
+        // 构建文件访问URL
+        const avatarUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
+
+        // 更新用户头像
+        const updated = await userService.updateUser(req.user.id, {
+          avatar: avatarUrl,
+        });
+
+        if (updated === 0) {
+          return errorResponse(res, null, "头像更新失败", 400);
+        }
+
+        successResponse(res, { avatar: avatarUrl }, "头像上传成功");
+      });
     } catch (err) {
       next(err);
     }

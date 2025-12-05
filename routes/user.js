@@ -87,6 +87,13 @@ router.put(
   UserController.updatePassword
 );
 
+// 上传头像
+router.post(
+  "/me/avatar",
+  authMiddleware,
+  UserController.uploadAvatar
+);
+
 // 获取用户资料（自己或管理员）
 router.get(
   "/:userId/profile",
