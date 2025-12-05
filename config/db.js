@@ -1,6 +1,7 @@
 const mysql = require("mysql2/promise");
 // 修改 db.js 中的 dotenv 配置
 const path = require("path");
+//环境变量加载
 require("dotenv").config({
   path: path.resolve(__dirname, "../.env"), // 明确指定 .env 文件路径
 });
@@ -13,8 +14,8 @@ const pool = mysql.createPool({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   charset: process.env.DB_CHARSET,
-  connectionLimit: 10, // 最大连接数
-  waitForConnections: true,
+  connectionLimit: 10, // 控制最大并发连接数,防止数据库压力过大
+  waitForConnections: true, //保证连接池满时请求会等待而不是报错
 });
 
 // 测试数据库连接
@@ -25,7 +26,7 @@ async function testDBConnection() {
     connection.release();
   } catch (err) {
     console.error("❌ 数据库连接失败：", err.message);
-    process.exit(1); // 连接失败则退出服务
+    process.exit(1); // 连接失败则退出服务,避免服务器假启动导致后续接口全部报错
   }
 }
 testDBConnection();
