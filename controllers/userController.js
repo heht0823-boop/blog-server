@@ -1,6 +1,7 @@
 const userService = require("../services/userService");
 const jwtUtil = require("../utils/jwt");
-const { upload } = require("../utils/upload");
+const {
+  upload } = require("../utils/upload");
 const {
   successResponse,
   errorResponse,
@@ -265,21 +266,21 @@ class UserController {
    */
   resetUserPassword = asyncHandler(async (req, res, next) => {
     try {
-      const { userId } = req.params;
+      const { id } = req.params;
       const { newPassword } = req.body;
 
       // 检查目标用户是否存在
-      const user = await userService.getUserById(userId);
+      const user = await userService.getUserById(id);
       if (!user) {
         return errorResponse(res, null, "用户不存在", 404);
       }
 
       // 管理员不能重置自己的密码（避免意外操作）
-      if (parseInt(userId) === req.user.id) {
+      if (parseInt(id) === req.user.id) {
         return errorResponse(res, null, "不能重置自己的密码，请使用修改密码接口", 400);
       }
 
-      const updated = await userService.resetPasswordByAdmin(userId, newPassword);
+      const updated = await userService.resetPasswordByAdmin(id, newPassword);
 
       if (!updated) {
         return errorResponse(res, null, "密码重置失败", 400);
