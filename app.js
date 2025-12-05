@@ -11,14 +11,13 @@ const { testDBConnection } = require("./config/db");
 
 // 导入路由
 const userRouter = require("./routes/user");
-const articleRouter = require("./routes/article");
-const categoryRouter = require("./routes/category");
-const tagRouter = require("./routes/tag");
-const commentRouter = require("./routes/comment");
+// const articleRouter = require("./routes/article");
+// const categoryRouter = require("./routes/category");
+// const tagRouter = require("./routes/tag");
+// const commentRouter = require("./routes/comment");
 
 // 初始化服务
 const app = express();
-
 // 中间件链（顺序重要）
 app.use(loggerMiddleware); // 日志中间件（最前）
 app.use(corsMiddleware); // 跨域中间件
@@ -31,17 +30,12 @@ app.use(
   express.static(process.env.UPLOAD_DIR || "./public/uploads")
 );
 
-// 健康检查接口
-app.get("/api/health", (req, res) => {
-  res.json({ code: 200, msg: "服务正常运行", data: null });
-});
-
 // 注册路由（接口前缀统一为/api）
 app.use("/api/user", userRouter);
-app.use("/api/article", articleRouter);
-app.use("/api/category", categoryRouter);
-app.use("/api/tag", tagRouter);
-app.use("/api/comment", commentRouter);
+// app.use("/api/article", articleRouter);
+// app.use("/api/category", categoryRouter);
+// app.use("/api/tag", tagRouter);
+// app.use("/api/comment", commentRouter);
 
 // 404处理
 app.use((req, res) => {

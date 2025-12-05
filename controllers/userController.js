@@ -26,9 +26,11 @@ class UserController {
   // 注册
   async register(req, res, next) {
     try {
-      // 校验参数
+      // 校验参数 - 改进：返回格式化错误
       const errors = validationResult(req);
-      if (!errors.isEmpty()) return next(errors);
+      if (!errors.isEmpty()) {
+        return errorResponse(res, null, errors.array()[0].msg, 400);
+      }
 
       const { username, password, nickname } = req.body;
       // 检查用户名是否已存在
@@ -42,6 +44,8 @@ class UserController {
         nickname,
       });
       const user = await userService.getUserById(userId);
+      // 过滤敏感信息
+      delete user.password;
       successResponse(res, user, "注册成功");
     } catch (err) {
       next(err);
@@ -57,7 +61,10 @@ class UserController {
 
       // 生成Token
       const token = generateToken({ id: user.id, role: user.role });
-      successResponse(res, { user, token }, "登录成功");
+      // 过滤敏感信息 - 改进：不返回密码哈希
+      const userData = { ...user };
+      delete userData.password;
+      successResponse(res, { user: userData, token }, "登录成功");
     } catch (err) {
       next(err);
     }
@@ -68,6 +75,8 @@ class UserController {
     try {
       const user = await userService.getUserById(req.user.id); // req.user由auth中间件挂载
       if (!user) return errorResponse(res, null, "用户不存在", 404);
+      // 过滤敏感信息
+      delete user.password;
       successResponse(res, user, "获取用户信息成功");
     } catch (err) {
       next(err);
@@ -86,14 +95,22 @@ class UserController {
         return errorResponse(res, null, "无更新内容", 400);
 
       const updatedUser = await userService.getUserById(req.user.id);
+      // 过滤敏感信息
+      delete updatedUser.password;
       successResponse(res, updatedUser, "更新用户信息成功");
     } catch (err) {
       next(err);
     }
   }
-  // 新增：密码更新接口
+
+  // 密码更新接口 - 改进：添加参数验证
   async updatePassword(req, res, next) {
     try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return errorResponse(res, null, errors.array()[0].msg, 400);
+      }
+
       const { oldPassword, newPassword } = req.body;
       const success = await userService.updatePassword(
         req.user.id,
@@ -107,10 +124,14 @@ class UserController {
     }
   }
 
-  // 新增：头像上传接口
+  // 头像上传接口 - 改进：添加错误检查
   async uploadAvatar(req, res, next) {
     try {
-      // 调用文件上传中间件后，req.uploadFile已存在
+      // 改进：检查上传文件是否存在
+      if (!req.uploadFile || !req.uploadFile.url) {
+        return errorResponse(res, null, "文件上传失败", 400);
+      }
+
       const { url } = req.uploadFile;
       // 更新用户头像
       await userService.updateUser(req.user.id, { avatar: url });
@@ -120,6 +141,7 @@ class UserController {
     }
   }
 }
+
 module.exports = {
   UserController: new UserController(),
   registerValidator,
