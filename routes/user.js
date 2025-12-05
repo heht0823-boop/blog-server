@@ -87,6 +87,15 @@ router.put(
   UserController.updatePassword
 );
 
+// 管理员重置用户密码
+router.put(
+  "/:id/password",
+  authMiddleware,
+  adminMiddleware,
+  validate([...userIdValidator, ...passwordResetValidator]),
+  UserController.resetUserPassword
+);
+
 // 上传头像
 router.post(
   "/me/avatar",
