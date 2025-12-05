@@ -43,12 +43,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// ===== 日志中间件 =====
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-  next();
-});
-
 // ===== 全局速率限制 =====
 const globalRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 分钟

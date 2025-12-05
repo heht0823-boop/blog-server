@@ -378,31 +378,6 @@ class UserController {
       next(err);
     }
   });
-
-  /**
-   * 上传头像（可选功能）
-   */
-  uploadAvatar = asyncHandler(async (req, res, next) => {
-    try {
-      if (!req.file) {
-        return errorResponse(res, null, "未上传文件", 400);
-      }
-
-      const avatarUrl = `/uploads/${req.file.filename}`;
-
-      const updated = await userService.updateUser(req.user.id, {
-        avatar: avatarUrl,
-      });
-
-      if (updated === 0) {
-        return errorResponse(res, null, "更新失败", 400);
-      }
-
-      successResponse(res, { avatar: avatarUrl }, "上传成功", 201);
-    } catch (err) {
-      next(err);
-    }
-  });
 }
 
 module.exports = new UserController();

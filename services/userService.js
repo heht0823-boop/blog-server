@@ -32,7 +32,7 @@ class UserService {
   async verifyUser(username, password) {
     try {
       const [users] = await pool.query(
-        "SELECT id, username, password, nickname, avatar, role, create_time FROM users WHERE username = ?",
+        "SELECT id, username, password, nickname, avatar, role FROM users WHERE username = ?",
         [username]
       );
 
@@ -49,7 +49,6 @@ class UserService {
       delete user.password;
       return user;
     } catch (err) {
-      console.error("验证用户失败：", err);
       throw err;
     }
   }
@@ -65,7 +64,6 @@ class UserService {
       );
       return users[0] || null;
     } catch (err) {
-      console.error("查询用户名失败：", err);
       throw err;
     }
   }
@@ -81,7 +79,6 @@ class UserService {
       );
       return users[0] || null;
     } catch (err) {
-      console.error("获取用户信息失败：", err);
       throw err;
     }
   }
@@ -117,7 +114,6 @@ class UserService {
 
       return result.affectedRows;
     } catch (err) {
-      console.error("更新用户信息失败：", err);
       throw err;
     }
   }
@@ -159,7 +155,6 @@ class UserService {
 
       return result.affectedRows > 0;
     } catch (err) {
-      console.error("更新密码失败：", err);
       throw err;
     }
   }
@@ -187,14 +182,13 @@ class UserService {
       const [countResult] = await pool.query(countQuery, countParams);
       const total = countResult[0].total;
 
-      dataQuery += " LIMIT ? OFFSET ?";
+      dataQuery += " ORDER BY id DESC LIMIT ? OFFSET ?";
       dataParams.push(pageSize, offset);
 
       const [users] = await pool.query(dataQuery, dataParams);
 
       return { total, users };
     } catch (err) {
-      console.error("获取用户列表失败：", err);
       throw err;
     }
   }
@@ -210,7 +204,6 @@ class UserService {
 
       return result.affectedRows > 0;
     } catch (err) {
-      console.error("删除用户失败：", err);
       throw err;
     }
   }
@@ -229,7 +222,6 @@ class UserService {
 
       return stats[0];
     } catch (err) {
-      console.error("获取用户统计失败：", err);
       throw err;
     }
   }
@@ -246,7 +238,6 @@ class UserService {
 
       return result.affectedRows > 0;
     } catch (err) {
-      console.error("升级管理员失败：", err);
       throw err;
     }
   }
@@ -263,7 +254,6 @@ class UserService {
 
       return result.affectedRows > 0;
     } catch (err) {
-      console.error("降级用户失败：", err);
       throw err;
     }
   }
