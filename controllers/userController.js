@@ -16,6 +16,12 @@ const registerValidator = [
   body("password").isLength({ min: 6 }).withMessage("密码至少6位"),
 ];
 
+// 补充参数校验规则
+const passwordUpdateValidator = [
+  body("oldPassword").notEmpty().withMessage("旧密码不能为空"),
+  body("newPassword").isLength({ min: 6 }).withMessage("新密码至少6位"),
+];
+
 class UserController {
   // 注册
   async register(req, res, next) {
@@ -85,9 +91,37 @@ class UserController {
       next(err);
     }
   }
-}
+  // 新增：密码更新接口
+  async updatePassword(req, res, next) {
+    try {
+      const { oldPassword, newPassword } = req.body;
+      const success = await userService.updatePassword(
+        req.user.id,
+        oldPassword,
+        newPassword
+      );
+      if (!success) return errorResponse(res, null, "旧密码错误", 400);
+      successResponse(res, null, "密码更新成功");
+    } catch (err) {
+      next(err);
+    }
+  }
 
+  // 新增：头像上传接口
+  async uploadAvatar(req, res, next) {
+    try {
+      // 调用文件上传中间件后，req.uploadFile已存在
+      const { url } = req.uploadFile;
+      // 更新用户头像
+      await userService.updateUser(req.user.id, { avatar: url });
+      successResponse(res, { avatar: url }, "头像上传成功");
+    } catch (err) {
+      next(err);
+    }
+  }
+}
 module.exports = {
   UserController: new UserController(),
   registerValidator,
+  passwordUpdateValidator,
 };
