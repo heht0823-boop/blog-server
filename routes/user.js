@@ -125,6 +125,15 @@ router.get(
   UserController.getUserStats
 );
 
+// 管理员重置用户密码
+router.put(
+  "/:id/password",
+  authMiddleware,
+  adminMiddleware,
+  validate([...userIdValidator, ...passwordResetValidator]),
+  UserController.resetUserPassword
+);
+
 // 删除用户
 router.delete(
   "/:id",

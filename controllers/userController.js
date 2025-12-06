@@ -276,6 +276,38 @@ class UserController {
 
     successResponse(res, null, "删除成功");
   });
+  /**
+   * 管理员重置用户密码
+   */
+  resetUserPassword = asyncHandler(async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      const { newPassword } = req.body;
+
+      // 检查目标用户是否存在
+      const user = await userService.getUserById(id);
+      if (!user) {
+        return errorResponse(res, null, "用户不存在", 404);
+      }
+
+      // 管理员不能重置自己的密码（避免意外操作）
+      if (parseInt(id) === req.user.id) {
+        return errorResponse(
+          res,
+          null,
+          "不能重置自己的密码，请使用修改密码接口",
+          400
+        );
+      }
+
+      // 重置密码
+      await userService.resetPasswordByAdmin(id, newPassword);
+
+      successResponse(res, null, "密码重置成功");
+    } catch (err) {
+      next(err);
+    }
+  });
 
   /**
    * 升级用户为管理员（管理员功能）
