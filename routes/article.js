@@ -2,17 +2,19 @@ const express = require("express");
 const router = express.Router();
 
 const ArticleController = require("../controllers/articleController");
+const { validate } = require("../middleware/validator");
 const {
-  validate,
   paginationValidator,
   articleQueryValidator,
   articleIdValidator,
   articleCreateValidator,
   articleUpdateValidator,
-} = require("../middleware/validator");
+  articleSearchValidator,
+} = require("../middleware/articleValidator"); // 修改这里
 const { authMiddleware } = require("../middleware/auth");
 const { adminMiddleware } = require("../middleware/permission");
 
+// ... 其他代码保持不变
 // ===== 公开接口 =====
 
 // 获取文章列表

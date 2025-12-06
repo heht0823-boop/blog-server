@@ -3,8 +3,8 @@ const router = express.Router();
 const rateLimit = require("express-rate-limit");
 
 const UserController = require("../controllers/userController");
+const { validate } = require("../middleware/validator");
 const {
-  validate,
   registerValidator,
   loginValidator,
   passwordUpdateValidator,
@@ -13,7 +13,7 @@ const {
   userIdValidator,
   paginationValidator,
   roleValidator,
-} = require("../middleware/validator");
+} = require("../middleware/userValidator"); // 修改这里
 const {
   authMiddleware,
   refreshTokenMiddleware,
