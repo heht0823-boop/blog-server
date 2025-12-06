@@ -1,6 +1,7 @@
+// routes/article.js
 const express = require("express");
 const router = express.Router();
-const { param } = require("express-validator"); // 添加这行引入
+const { param } = require("express-validator");
 
 const ArticleController = require("../controllers/articleController");
 const { validate } = require("../middleware/validator");
@@ -10,8 +11,8 @@ const {
   articleCreateValidator,
   articleUpdateValidator,
   articleSearchValidator,
+  articleTagValidator,
 } = require("../middleware/articleValidator");
-// 从 userValidator.js 导入 paginationValidator
 const { paginationValidator } = require("../middleware/userValidator");
 const { authMiddleware } = require("../middleware/auth");
 const { adminMiddleware } = require("../middleware/permission");
@@ -25,9 +26,6 @@ router.get(
   ArticleController.getArticles
 );
 
-// 获取文章详情
-router.get("/:id", validate(articleIdValidator), ArticleController.getArticle);
-
 // 搜索文章
 router.get(
   "/search",
@@ -37,13 +35,6 @@ router.get(
 
 // 获取热门文章
 router.get("/popular", ArticleController.getPopularArticles);
-
-// 增加文章浏览数
-router.put(
-  "/:id/views",
-  validate(articleIdValidator),
-  ArticleController.incrementViews
-);
 
 // 获取分类下文章
 router.get(
@@ -75,6 +66,53 @@ router.post(
   ArticleController.createArticle
 );
 
+// ===== 管理员接口 =====
+
+// 获取文章统计
+router.get(
+  "/stats/all",
+  authMiddleware,
+  adminMiddleware,
+  ArticleController.getArticleStats
+);
+
+// 具体操作路由（必须放在通用:id路由之前）
+// 增加文章浏览数
+router.put(
+  "/:id/views",
+  validate(articleIdValidator),
+  ArticleController.incrementViews
+);
+
+// 为文章设置标签
+router.put(
+  "/:id/tags",
+  authMiddleware,
+  validate([...articleIdValidator, ...articleTagValidator]),
+  ArticleController.setArticleTags
+);
+
+// 完全清除文章标签
+router.delete(
+  "/:id/tags",
+  authMiddleware,
+  validate(articleIdValidator),
+  ArticleController.clearArticleTags
+);
+
+// 置顶/取消置顶文章
+router.put(
+  "/:id/top",
+  authMiddleware,
+  adminMiddleware,
+  validate(articleIdValidator),
+  ArticleController.toggleTopStatus
+);
+
+// 通用:id路由（放在最后）
+// 获取文章详情
+router.get("/:id", validate(articleIdValidator), ArticleController.getArticle);
+
 // 更新文章
 router.put(
   "/:id",
@@ -89,25 +127,6 @@ router.delete(
   authMiddleware,
   validate(articleIdValidator),
   ArticleController.deleteArticle
-);
-
-// ===== 管理员接口 =====
-
-// 获取文章统计（需要管理员权限）
-router.get(
-  "/stats/all",
-  authMiddleware,
-  adminMiddleware,
-  ArticleController.getArticleStats
-);
-
-// 置顶文章（需要管理员权限）
-router.put(
-  "/:id/top",
-  authMiddleware,
-  adminMiddleware,
-  validate(articleIdValidator),
-  ArticleController.toggleTopStatus
 );
 
 module.exports = router;

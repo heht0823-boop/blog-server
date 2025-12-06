@@ -29,6 +29,7 @@ class ArticleController {
       next(err);
     }
   });
+
   /**
    * 获取文章列表
    */
@@ -69,6 +70,7 @@ class ArticleController {
       next(err);
     }
   });
+
   /**
    * 获取文章详情
    */
@@ -95,14 +97,19 @@ class ArticleController {
     try {
       const { id } = req.params;
       const { title, content, cover, categoryId, status, isTop } = req.body;
+      const userId = req.user.id;
+      const userRole = req.user.role;
+
+      // 验证文章所有权
+      await articleService.verifyArticleOwnership(id, userId, userRole);
 
       const updated = await articleService.updateArticle(id, {
         title,
         content,
         cover,
-        category_id: categoryId, // 字段名映射
+        category_id: categoryId,
         status,
-        is_top: isTop, // 字段名映射
+        is_top: isTop,
       });
 
       if (!updated) {
@@ -111,6 +118,12 @@ class ArticleController {
 
       successResponse(res, null, "文章更新成功");
     } catch (err) {
+      if (err.message === "无权操作此文章") {
+        return errorResponse(res, null, "权限不足", 403);
+      }
+      if (err.message === "文章不存在") {
+        return errorResponse(res, null, "文章不存在", 404);
+      }
       next(err);
     }
   });
@@ -121,6 +134,11 @@ class ArticleController {
   deleteArticle = asyncHandler(async (req, res, next) => {
     try {
       const { id } = req.params;
+      const userId = req.user.id;
+      const userRole = req.user.role;
+
+      // 验证文章所有权
+      await articleService.verifyArticleOwnership(id, userId, userRole);
 
       const deleted = await articleService.deleteArticle(id);
 
@@ -130,6 +148,12 @@ class ArticleController {
 
       successResponse(res, null, "文章删除成功");
     } catch (err) {
+      if (err.message === "无权操作此文章") {
+        return errorResponse(res, null, "权限不足", 403);
+      }
+      if (err.message === "文章不存在") {
+        return errorResponse(res, null, "文章不存在", 404);
+      }
       next(err);
     }
   });
@@ -155,6 +179,7 @@ class ArticleController {
       next(err);
     }
   });
+
   /**
    * 获取文章统计信息
    */
@@ -172,11 +197,14 @@ class ArticleController {
    */
   searchArticles = asyncHandler(async (req, res, next) => {
     try {
-      const { keyword, page = 1, pageSize = 10 } = req.query;
+      let { keyword, page = 1, pageSize = 10 } = req.query;
 
       if (!keyword) {
         return errorResponse(res, null, "搜索关键词不能为空", 400);
       }
+
+      // 清理关键词，去除首尾引号和多余空格
+      keyword = keyword.trim().replace(/^["']+|["']+$/g, "");
 
       // 添加关键词长度验证
       if (keyword.length < 1 || keyword.length > 50) {
@@ -229,11 +257,11 @@ class ArticleController {
     try {
       const { id } = req.params;
       const updated = await articleService.incrementViews(id);
-      
+
       if (!updated) {
         return errorResponse(res, null, "文章不存在", 404);
       }
-      
+
       successResponse(res, null, "浏览数增加成功");
     } catch (err) {
       next(err);
@@ -247,13 +275,13 @@ class ArticleController {
     try {
       const { categoryId } = req.params;
       const { page = 1, pageSize = 10 } = req.query;
-      
+
       const result = await articleService.getArticlesByCategory(
         categoryId,
         parseInt(page),
         parseInt(pageSize)
       );
-      
+
       successResponse(
         res,
         {
@@ -276,13 +304,13 @@ class ArticleController {
     try {
       const { userId } = req.params;
       const { page = 1, pageSize = 10 } = req.query;
-      
+
       const result = await articleService.getUserArticles(
         userId,
         parseInt(page),
         parseInt(pageSize)
       );
-      
+
       successResponse(
         res,
         {
@@ -294,6 +322,73 @@ class ArticleController {
         "获取成功"
       );
     } catch (err) {
+      next(err);
+    }
+  });
+
+  /**
+   * 为文章设置标签
+   */
+  setArticleTags = asyncHandler(async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      const { tagIds } = req.body;
+      const userId = req.user.id;
+      const userRole = req.user.role;
+
+      // 验证文章所有权
+      await articleService.verifyArticleOwnership(id, userId, userRole);
+
+      // 先清除原有的标签关联
+      await articleService.clearArticleTags(id);
+
+      // 添加新的标签关联
+      for (const tagId of tagIds) {
+        try {
+          await articleService.addArticleTag(id, tagId);
+        } catch (err) {
+          // 忽略重复关联的错误
+          if (!err.message.includes("Duplicate entry")) {
+            throw err;
+          }
+        }
+      }
+
+      successResponse(res, null, "标签设置成功");
+    } catch (err) {
+      if (err.message === "无权操作此文章") {
+        return errorResponse(res, null, "权限不足", 403);
+      }
+      if (err.message === "文章不存在") {
+        return errorResponse(res, null, "文章不存在", 404);
+      }
+      next(err);
+    }
+  });
+
+  /**
+   * 清除文章标签
+   */
+  clearArticleTags = asyncHandler(async (req, res, next) => {
+    try {
+      const { id } = req.params; // 从URL参数获取文章ID
+      const userId = req.user.id;
+      const userRole = req.user.role;
+
+      // 验证文章所有权
+      await articleService.verifyArticleOwnership(id, userId, userRole);
+
+      // 清除标签关联
+      await articleService.clearArticleTags(id);
+
+      successResponse(res, null, "标签清除成功");
+    } catch (err) {
+      if (err.message === "无权操作此文章") {
+        return errorResponse(res, null, "权限不足", 403);
+      }
+      if (err.message === "文章不存在") {
+        return errorResponse(res, null, "文章不存在", 404);
+      }
       next(err);
     }
   });

@@ -56,7 +56,8 @@ class ArticleService {
 
       // 标签过滤
       if (filters.tag_id) {
-        query += " AND EXISTS (SELECT 1 FROM article_tags at WHERE at.article_id = a.id AND at.tag_id = ?)";
+        query +=
+          " AND EXISTS (SELECT 1 FROM article_tags at WHERE at.article_id = a.id AND at.tag_id = ?)";
         params.push(filters.tag_id);
         countParams.push(filters.tag_id);
       }
@@ -86,7 +87,8 @@ class ArticleService {
 
       // 标签过滤
       if (filters.tag_id) {
-        countQuery += " AND EXISTS (SELECT 1 FROM article_tags at WHERE at.article_id = a.id AND at.tag_id = ?)";
+        countQuery +=
+          " AND EXISTS (SELECT 1 FROM article_tags at WHERE at.article_id = a.id AND at.tag_id = ?)";
       }
 
       const [countResult] = await pool.query(countQuery, countParams);
@@ -155,6 +157,7 @@ class ArticleService {
       throw err;
     }
   }
+
   /**
    * 删除文章
    */
@@ -176,18 +179,20 @@ class ArticleService {
   async searchArticles(keyword, page = 1, pageSize = 10) {
     try {
       const offset = (page - 1) * pageSize;
-      const searchTerm = `%${keyword}%`;
+      // 去除关键词两端的引号和空格
+      const cleanKeyword = keyword.replace(/^["']|["']$/g, "").trim();
+      const searchTerm = `%${cleanKeyword}%`;
 
       const [articles] = await pool.query(
         `SELECT * FROM articles 
-       WHERE title LIKE ? OR content LIKE ?
+       WHERE (title LIKE ? OR content LIKE ?) AND status = 1
        ORDER BY create_time DESC LIMIT ? OFFSET ?`,
         [searchTerm, searchTerm, pageSize, offset]
       );
 
       const [countResult] = await pool.query(
         `SELECT COUNT(*) as total FROM articles 
-       WHERE title LIKE ? OR content LIKE ?`,
+       WHERE (title LIKE ? OR content LIKE ?) AND status = 1`,
         [searchTerm, searchTerm]
       );
 
@@ -228,7 +233,7 @@ class ArticleService {
       const [articles] = await pool.query(
         `SELECT * FROM articles 
          WHERE status = 1
-         ORDER BY views DESC LIMIT ?`,
+         ORDER BY read_count DESC LIMIT ?`,
         [limit]
       );
 
@@ -244,7 +249,7 @@ class ArticleService {
   async incrementViews(articleId) {
     try {
       const [result] = await pool.query(
-        "UPDATE articles SET views = views + 1 WHERE id = ?",
+        "UPDATE articles SET read_count = read_count + 1 WHERE id = ?",
         [articleId]
       );
 
@@ -370,6 +375,46 @@ class ArticleService {
       );
 
       return result.affectedRows > 0;
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  /**
+   * 验证文章所有权
+   */
+  async verifyArticleOwnership(articleId, userId, userRole) {
+    try {
+      const [articles] = await pool.query(
+        "SELECT user_id FROM articles WHERE id = ?",
+        [articleId]
+      );
+
+      if (articles.length === 0) {
+        throw new Error("文章不存在");
+      }
+
+      // 管理员或文章作者可以操作
+      if (userRole !== 1 && articles[0].user_id != userId) {
+        throw new Error("无权操作此文章");
+      }
+
+      return true;
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  /**
+   * 清除文章的所有标签关联
+   */
+  async clearArticleTags(articleId) {
+    try {
+      const [result] = await pool.query(
+        "DELETE FROM article_tags WHERE article_id = ?",
+        [articleId]
+      );
+      return result.affectedRows;
     } catch (err) {
       throw err;
     }
