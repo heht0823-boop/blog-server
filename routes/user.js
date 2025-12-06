@@ -8,10 +8,11 @@ const {
   registerValidator,
   loginValidator,
   passwordUpdateValidator,
+  passwordResetValidator,
   updateUserValidator,
   userIdValidator,
   paginationValidator,
-  passwordResetValidator,
+  roleValidator,
 } = require("../middleware/validator");
 const {
   authMiddleware,
@@ -25,18 +26,18 @@ const {
 // ===== 速率限制 =====
 
 const registerLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 小时
-  max: 10, // 最多 10 次
+  windowMs: 60 * 60 * 1000,
+  max: 10,
   message: "注册次数过多，请稍后再试",
-  standardHeaders: true, // 返回速率限制信息在 `RateLimit-*` 标头中
-  legacyHeaders: false, // 禁用 `X-RateLimit-*` 标头
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 分钟
-  max: 5, // 最多 5 次失败登录
+  windowMs: 15 * 60 * 1000,
+  max: 5,
   message: "登录尝试次数过多，请稍后再试",
-  skipSuccessfulRequests: true, // 成功请求不计数
+  skipSuccessfulRequests: true,
 });
 
 // ===== 公开接口 =====
@@ -88,18 +89,6 @@ router.put(
   UserController.updatePassword
 );
 
-// 管理员重置用户密码
-router.put(
-  "/:id/password",
-  authMiddleware,
-  adminMiddleware,
-  validate([...userIdValidator, ...passwordResetValidator]),
-  UserController.resetUserPassword
-);
-
-// 上传头像
-router.post("/me/avatar", authMiddleware, UserController.uploadAvatar);
-
 // 获取用户资料（自己或管理员）
 router.get(
   "/:userId/profile",
@@ -110,7 +99,7 @@ router.get(
 
 // ===== 管理员接口 =====
 
-// 获取所有用户（需要管理员权限）
+// 获取所有用户
 router.get(
   "/",
   authMiddleware,
@@ -119,7 +108,7 @@ router.get(
   UserController.getAllUsers
 );
 
-// 获取特定用户详情（需要管理员权限）
+// 获取特定用户详情
 router.get(
   "/:id",
   authMiddleware,
@@ -128,7 +117,7 @@ router.get(
   UserController.getUserDetail
 );
 
-// 获取用户统计（需要管理员权限）
+// 获取用户统计
 router.get(
   "/stats/all",
   authMiddleware,
@@ -136,7 +125,7 @@ router.get(
   UserController.getUserStats
 );
 
-// 删除用户（需要管理员权限）
+// 删除用户
 router.delete(
   "/:id",
   authMiddleware,
@@ -145,7 +134,7 @@ router.delete(
   UserController.deleteUser
 );
 
-// 升级用户为管理员（需要管理员权限）
+// 升级用户为管理员
 router.post(
   "/:id/promote",
   authMiddleware,
@@ -154,7 +143,7 @@ router.post(
   UserController.promoteToAdmin
 );
 
-// 降级用户为普通用户（需要管理员权限）
+// 降级用户为普通用户
 router.post(
   "/:id/demote",
   authMiddleware,

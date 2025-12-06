@@ -8,15 +8,22 @@ class UserService {
   async createUser(userData) {
     const { username, password, nickname } = userData;
 
-    const salt = await bcrypt.genSalt(10);
-    const hashedPwd = await bcrypt.hash(password, salt);
+    try {
+      const salt = await bcrypt.genSalt(10);
+      const hashedPwd = await bcrypt.hash(password, salt);
 
-    const [result] = await pool.query(
-      "INSERT INTO users (username, password, nickname, role) VALUES (?, ?, ?, ?)",
-      [username, hashedPwd, nickname || username, 0]
-    );
+      const [result] = await pool.query(
+        "INSERT INTO users (username, password, nickname, role) VALUES (?, ?, ?, ?)",
+        [username, hashedPwd, nickname || username, 0]
+      );
 
-    return result.insertId;
+      return result.insertId;
+    } catch (err) {
+      if (err.code === "ER_DUP_ENTRY") {
+        throw new Error("用户名已存在");
+      }
+      throw err;
+    }
   }
 
   /**
@@ -24,7 +31,7 @@ class UserService {
    */
   async verifyUser(username, password) {
     const [users] = await pool.query(
-      "SELECT id, username, password, nickname, avatar, role FROM users WHERE username = ?",
+      "SELECT id, username, password, nickname, avatar, role, create_time FROM users WHERE username = ?",
       [username]
     );
 
@@ -86,9 +93,7 @@ class UserService {
     values.push(userId);
 
     const [result] = await pool.query(
-      `UPDATE users SET ${fields.join(
-        ", "
-      )}, update_time = NOW() WHERE id = ?`,
+      `UPDATE users SET ${fields.join(", ")}, update_time = NOW() WHERE id = ?`,
       values
     );
 
@@ -113,44 +118,9 @@ class UserService {
       throw new Error("旧密码错误");
     }
 
-    const isSamePassword = await bcrypt.compare(
-      newPassword,
-      users[0].password
-    );
+    const isSamePassword = await bcrypt.compare(newPassword, users[0].password);
     if (isSamePassword) {
       throw new Error("新密码不能与旧密码相同");
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    const hashedPwd = await bcrypt.hash(newPassword, salt);
-
-    const [result] = await pool.query(
-      "UPDATE users SET password = ?, update_time = NOW() WHERE id = ?",
-      [hashedPwd, userId]
-    );
-
-    return result.affectedRows > 0;
-  }
-
-  /**
-   * 管理员重置用户密码（不需要旧密码）
-   */
-  async resetPasswordByAdmin(userId, newPassword) {
-    // 检查密码强度
-    if (!newPassword || newPassword.length < 6 || newPassword.length > 30) {
-      throw new Error("密码长度必须在6-30位之间");
-    }
-
-    if (!/[a-z]/.test(newPassword)) {
-      throw new Error("密码必须包含小写字母");
-    }
-
-    if (!/[A-Z]/.test(newPassword)) {
-      throw new Error("密码必须包含大写字母");
-    }
-
-    if (!/[0-9]/.test(newPassword)) {
-      throw new Error("密码必须包含数字");
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -186,7 +156,7 @@ class UserService {
     const [countResult] = await pool.query(countQuery, countParams);
     const total = countResult[0].total;
 
-    dataQuery += " ORDER BY id DESC LIMIT ? OFFSET ?";
+    dataQuery += " LIMIT ? OFFSET ?";
     dataParams.push(pageSize, offset);
 
     const [users] = await pool.query(dataQuery, dataParams);

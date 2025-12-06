@@ -4,14 +4,11 @@ const { ValidationError } = require("./errorHandler");
 
 /**
  * 验证中间件执行器
- * 捕获所有验证错误并使用统一的错误格式
  */
 const validate = (validations) => {
   return async (req, res, next) => {
-    // 运行所有验证规则
     await Promise.all(validations.map((validation) => validation.run(req)));
 
-    // 获取验证结果
     const errors = validationResult(req);
 
     if (!errors.isEmpty()) {
@@ -30,9 +27,6 @@ const validate = (validations) => {
 
 // ===== 注册验证 =====
 
-/**
- * 注册验证规则
- */
 const registerValidator = [
   body("username")
     .trim()
@@ -61,7 +55,6 @@ const registerValidator = [
     .matches(/[0-9]/)
     .withMessage("密码必须包含数字")
     .custom((value) => {
-      // 检查常见弱密码
       const weakPasswords = [
         "123456",
         "password",
@@ -86,9 +79,6 @@ const registerValidator = [
 
 // ===== 登录验证 =====
 
-/**
- * 登录验证规则
- */
 const loginValidator = [
   body("username")
     .trim()
@@ -106,9 +96,6 @@ const loginValidator = [
 
 // ===== 用户信息更新验证 =====
 
-/**
- * 修改密码验证规则
- */
 const passwordUpdateValidator = [
   body("oldPassword")
     .notEmpty()
@@ -135,9 +122,8 @@ const passwordUpdateValidator = [
     }),
 ];
 
-/**
- * 管理员重置密码验证规则
- */
+// ===== 密码重置验证 =====
+
 const passwordResetValidator = [
   body("newPassword")
     .notEmpty()
@@ -152,9 +138,6 @@ const passwordResetValidator = [
     .withMessage("新密码必须包含数字"),
 ];
 
-/**
- * 更新用户信息验证规则
- */
 const updateUserValidator = [
   body("nickname")
     .optional()
@@ -169,90 +152,12 @@ const updateUserValidator = [
 
 // ===== ID 参数验证 =====
 
-// 文章 ID 参数验证
-const articleIdValidator = [
-  param("id").isInt({ min: 1 }).withMessage("文章 ID 必须是正整数"),
-];
-
-// 文章创建验证
-const articleCreateValidator = [
-  body("title")
-    .trim()
-    .notEmpty()
-    .withMessage("文章标题不能为空")
-    .isLength({ min: 1, max: 100 })
-    .withMessage("文章标题长度 1-100 位"),
-
-  body("content").trim().notEmpty().withMessage("文章内容不能为空"),
-
-  body("categoryId")
-    .optional()
-    .isInt({ min: 1 })
-    .withMessage("分类 ID 必须是正整数"),
-
-  body("status")
-    .optional()
-    .isInt({ min: 0, max: 1 })
-    .withMessage("状态值必须是 0 或 1"),
-
-  body("tags").optional().isArray().withMessage("标签必须是数组格式"),
-];
-
-// 文章更新验证
-const articleUpdateValidator = [
-  body("title")
-    .optional()
-    .trim()
-    .isLength({ min: 1, max: 100 })
-    .withMessage("文章标题长度 1-100 位"),
-
-  body("content").optional().trim(),
-
-  body("categoryId")
-    .optional()
-    .isInt({ min: 1 })
-    .withMessage("分类 ID 必须是正整数"),
-
-  body("status")
-    .optional()
-    .isInt({ min: 0, max: 1 })
-    .withMessage("状态值必须是 0 或 1"),
-
-  body("tags").optional().isArray().withMessage("标签必须是数组格式"),
-];
-
-// 文章查询验证
-const articleQueryValidator = [
-  query("categoryId")
-    .optional()
-    .isInt({ min: 1 })
-    .withMessage("分类 ID 必须是正整数")
-    .toInt(),
-
-  query("tagId")
-    .optional()
-    .isInt({ min: 1 })
-    .withMessage("标签 ID 必须是正整数")
-    .toInt(),
-
-  query("status")
-    .optional()
-    .isInt({ min: 0, max: 1 })
-    .withMessage("状态值必须是 0 或 1")
-    .toInt(),
-];
-/**
- * 用户 ID 参数验证
- */
 const userIdValidator = [
   param("id").isInt({ min: 1 }).withMessage("用户 ID 必须是正整数"),
 ];
 
 // ===== 分页参数验证 =====
 
-/**
- * 分页查询验证规则
- */
 const paginationValidator = [
   query("page")
     .optional()
@@ -269,9 +174,6 @@ const paginationValidator = [
 
 // ===== 角色验证 =====
 
-/**
- * 角色参数验证
- */
 const roleValidator = [
   query("role")
     .optional()
@@ -280,34 +182,14 @@ const roleValidator = [
     .toInt(),
 ];
 
-const articleSearchValidator = [
-  query("keyword")
-    .trim()
-    .notEmpty()
-    .withMessage("搜索关键词不能为空")
-    .isLength({ min: 1, max: 50 })
-    .withMessage("搜索关键词长度应在1-50个字符之间"),
-];
-
 module.exports = {
-  // 执行器
   validate,
-
-  // 用户相关
   registerValidator,
   loginValidator,
   passwordUpdateValidator,
   passwordResetValidator,
   updateUserValidator,
   userIdValidator,
-
-  // 分页和过滤
   paginationValidator,
   roleValidator,
-  // 文章相关
-  articleIdValidator,
-  articleCreateValidator,
-  articleUpdateValidator,
-  articleQueryValidator,
-  articleSearchValidator,
 };

@@ -5,252 +5,134 @@ class ArticleService {
    * 创建文章
    */
   async createArticle(articleData) {
-    const { title, content, cover, categoryId, userId, status, tags } =
+    const { title, content, description, category_id, tags, status, user_id } =
       articleData;
 
-    // 开始事务
-    const connection = await pool.getConnection();
     try {
-      await connection.beginTransaction();
-
-      // 插入文章
-      const [articleResult] = await connection.query(
-        "INSERT INTO articles (title, content, cover, category_id, user_id, status) VALUES (?, ?, ?, ?, ?, ?)",
-        [
-          title,
-          content,
-          cover || "https://picsum.photos/800/400",
-          categoryId,
-          userId,
-          status || 1,
-        ]
+      const [result] = await pool.query(
+        `INSERT INTO articles (title, content, description, category_id, status, user_id) 
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [title, content, description, category_id, status || 1, user_id]
       );
 
-      const articleId = articleResult.insertId;
-
-      // 处理标签关联
-      if (tags && Array.isArray(tags) && tags.length > 0) {
-        // 插入标签关联
-        const tagInsertPromises = tags.map((tagId) =>
-          connection.query(
-            "INSERT INTO article_tags (article_id, tag_id) VALUES (?, ?)",
-            [articleId, tagId]
-          )
-        );
-        await Promise.all(tagInsertPromises);
-      }
-
-      await connection.commit();
-      return articleId;
+      return result.insertId;
     } catch (err) {
-      await connection.rollback();
       throw err;
-    } finally {
-      connection.release();
     }
   }
+
   /**
    * 获取文章列表（分页）
    */
-  async getArticles(
-    page = 1,
-    pageSize = 10,
-    categoryId = null,
-    tagId = null,
-    status = null,
-    isAdmin = false
-  ) {
-    const offset = (page - 1) * pageSize;
+  async getArticles(page = 1, pageSize = 10, filters = {}) {
+    try {
+      const offset = (page - 1) * pageSize;
+      let query = "SELECT * FROM articles WHERE 1=1";
+      const params = [];
 
-    let baseQuery = `
-    SELECT a.id, a.title, a.content, a.cover, a.read_count, a.is_top, a.status, 
-           a.create_time, a.update_time, a.user_id, a.category_id,
-           u.username as author_username, u.nickname as author_nickname, u.avatar as author_avatar,
-           c.name as category_name
-    FROM articles a
-    LEFT JOIN users u ON a.user_id = u.id
-    LEFT JOIN categories c ON a.category_id = c.id
-  `;
+      // 应用过滤条件
+      if (filters.category_id) {
+        query += " AND category_id = ?";
+        params.push(filters.category_id);
+      }
 
-    let countQuery = `
-    SELECT COUNT(*) as total
-    FROM articles a
-    LEFT JOIN users u ON a.user_id = u.id
-    LEFT JOIN categories c ON a.category_id = c.id
-  `;
+      if (filters.status) {
+        query += " AND status = ?";
+        params.push(filters.status);
+      }
 
-    const whereConditions = [];
-    const params = [];
+      if (filters.user_id) {
+        query += " AND user_id = ?";
+        params.push(filters.user_id);
+      }
 
-    // 添加筛选条件
-    if (categoryId) {
-      whereConditions.push("a.category_id = ?");
-      params.push(categoryId);
+      query += " ORDER BY create_time DESC LIMIT ? OFFSET ?";
+      params.push(pageSize, offset);
+
+      const [articles] = await pool.query(query, params);
+
+      // 获取总数
+      let countQuery = "SELECT COUNT(*) as total FROM articles WHERE 1=1";
+      const countParams = [];
+
+      if (filters.category_id) {
+        countQuery += " AND category_id = ?";
+        countParams.push(filters.category_id);
+      }
+
+      if (filters.status) {
+        countQuery += " AND status = ?";
+        countParams.push(filters.status);
+      }
+
+      if (filters.user_id) {
+        countQuery += " AND user_id = ?";
+        countParams.push(filters.user_id);
+      }
+
+      const [countResult] = await pool.query(countQuery, countParams);
+      const total = countResult[0].total;
+
+      return { total, articles };
+    } catch (err) {
+      throw err;
     }
-
-    if (tagId) {
-      baseQuery += " LEFT JOIN article_tags at ON a.id = at.article_id";
-      countQuery += " LEFT JOIN article_tags at ON a.id = at.article_id";
-      whereConditions.push("at.tag_id = ?");
-      params.push(tagId);
-    }
-
-    // 管理员可以查看所有状态的文章，普通用户只能查看已发布的文章
-    if (status !== null) {
-      whereConditions.push("a.status = ?");
-      params.push(status);
-    } else if (!isAdmin) {
-      whereConditions.push("a.status = 1");
-    }
-
-    const whereClause =
-      whereConditions.length > 0
-        ? `WHERE ${whereConditions.join(" AND ")}`
-        : "";
-
-    const [countResult] = await pool.query(
-      countQuery + " " + whereClause,
-      params
-    );
-    const total = countResult[0].total;
-
-    // 添加排序和分页
-    baseQuery += ` ${whereClause} ORDER BY a.is_top DESC, a.create_time DESC LIMIT ? OFFSET ?`;
-    const queryParams = [...params, pageSize, offset];
-    const [articles] = await pool.query(baseQuery, queryParams);
-
-    // 获取每篇文章的标签
-    for (let article of articles) {
-      const [tags] = await pool.query(
-        `SELECT t.id, t.name 
-       FROM tags t 
-       INNER JOIN article_tags at ON t.id = at.tag_id 
-       WHERE at.article_id = ?`,
-        [article.id]
-      );
-      article.tags = tags;
-    }
-
-    return { total, articles };
   }
 
   /**
-   * 获取文章详情
+   * 获取单篇文章详情
    */
   async getArticleById(articleId) {
-    // 获取文章详情
-    const [articles] = await pool.query(
-      `
-    SELECT a.id, a.title, a.content, a.cover, a.read_count, a.is_top, a.status, 
-           a.create_time, a.update_time, a.user_id, a.category_id,
-           u.username as author_username, u.nickname as author_nickname, u.avatar as author_avatar,
-           c.name as category_name
-    FROM articles a
-    LEFT JOIN users u ON a.user_id = u.id
-    LEFT JOIN categories c ON a.category_id = c.id
-    WHERE a.id = ?
-  `,
-      [articleId]
-    );
+    try {
+      const [articles] = await pool.query(
+        "SELECT * FROM articles WHERE id = ?",
+        [articleId]
+      );
 
-    if (articles.length === 0) {
-      return null;
+      return articles[0] || null;
+    } catch (err) {
+      throw err;
     }
-
-    const article = articles[0];
-
-    // 获取文章标签
-    article.tags = await this._getArticleTags(article.id);
-
-    // 增加阅读量（异步执行，不影响返回结果）
-    pool
-      .query("UPDATE articles SET read_count = read_count + 1 WHERE id = ?", [
-        articleId,
-      ])
-      .catch((err) => {
-        console.error("增加阅读量失败:", err);
-      });
-
-    return article;
   }
 
   /**
    * 更新文章
    */
-  async updateArticle(articleId, articleData) {
-    const { title, content, cover, categoryId, status, tags } = articleData;
-
-    // 开始事务
-    const connection = await pool.getConnection();
+  async updateArticle(articleId, updateData) {
     try {
-      await connection.beginTransaction();
-
-      // 更新文章
+      const allowedFields = [
+        "title",
+        "content",
+        "description",
+        "category_id",
+        "status",
+      ];
       const fields = [];
       const values = [];
 
-      if (title !== undefined) {
-        fields.push("title = ?");
-        values.push(title);
-      }
-
-      if (content !== undefined) {
-        fields.push("content = ?");
-        values.push(content);
-      }
-
-      if (cover !== undefined) {
-        fields.push("cover = ?");
-        values.push(cover);
-      }
-
-      if (categoryId !== undefined) {
-        fields.push("category_id = ?");
-        values.push(categoryId);
-      }
-
-      if (status !== undefined) {
-        fields.push("status = ?");
-        values.push(status);
-      }
-
-      if (fields.length > 0) {
-        values.push(articleId);
-        await connection.query(
-          `UPDATE articles SET ${fields.join(
-            ", "
-          )}, update_time = NOW() WHERE id = ?`,
-          values
-        );
-      }
-
-      // 更新标签关联
-      if (tags !== undefined) {
-        // 删除原有标签关联
-        await connection.query(
-          "DELETE FROM article_tags WHERE article_id = ?",
-          [articleId]
-        );
-
-        // 插入新标签关联
-        if (Array.isArray(tags) && tags.length > 0) {
-          const tagInsertPromises = tags.map((tagId) =>
-            connection.query(
-              "INSERT INTO article_tags (article_id, tag_id) VALUES (?, ?)",
-              [articleId, tagId]
-            )
-          );
-          await Promise.all(tagInsertPromises);
+      Object.entries(updateData).forEach(([key, value]) => {
+        if (allowedFields.includes(key) && value !== undefined) {
+          fields.push(`${key} = ?`);
+          values.push(value);
         }
+      });
+
+      if (fields.length === 0) {
+        return 0;
       }
 
-      await connection.commit();
-      return true;
+      values.push(articleId);
+
+      const [result] = await pool.query(
+        `UPDATE articles SET ${fields.join(
+          ", "
+        )}, update_time = NOW() WHERE id = ?`,
+        values
+      );
+
+      return result.affectedRows;
     } catch (err) {
-      await connection.rollback();
       throw err;
-    } finally {
-      connection.release();
     }
   }
 
@@ -258,81 +140,221 @@ class ArticleService {
    * 删除文章
    */
   async deleteArticle(articleId) {
-    const [result] = await pool.query("DELETE FROM articles WHERE id = ?", [
-      articleId,
-    ]);
-    return result.affectedRows > 0;
-  }
+    try {
+      const [result] = await pool.query("DELETE FROM articles WHERE id = ?", [
+        articleId,
+      ]);
 
-  /**
-   * 置顶文章
-   */
-  async toggleTopStatus(articleId, isTop) {
-    const [result] = await pool.query(
-      "UPDATE articles SET is_top = ? WHERE id = ?",
-      [isTop ? 1 : 0, articleId]
-    );
-    return result.affectedRows > 0;
-  }
-
-  /**
-   * 获取文章统计信息
-   */
-  async getArticleStats() {
-    const [stats] = await pool.query(`
-      SELECT 
-        COUNT(*) as totalArticles,
-        COUNT(CASE WHEN status = 1 THEN 1 END) as publishedArticles,
-        COUNT(CASE WHEN is_top = 1 THEN 1 END) as topArticles,
-        SUM(read_count) as totalReadCount
-      FROM articles
-    `);
-
-    return stats[0];
-  }
-  /**
-   * 获取文章标签
-   * @private
-   */
-  async _getArticleTags(articleId) {
-    const [tags] = await pool.query(
-      `SELECT t.id, t.name 
-     FROM tags t 
-     INNER JOIN article_tags at ON t.id = at.tag_id 
-     WHERE at.article_id = ?`,
-      [articleId]
-    );
-    return tags;
+      return result.affectedRows > 0;
+    } catch (err) {
+      throw err;
+    }
   }
 
   /**
    * 搜索文章
    */
-  searchArticles = asyncHandler(async (req, res, next) => {
+  async searchArticles(keyword, page = 1, pageSize = 10) {
     try {
-      const { keyword, page = 1, pageSize = 10 } = req.query;
+      const offset = (page - 1) * pageSize;
+      const searchTerm = `%${keyword}%`;
 
-      const result = await articleService.searchArticles(
-        keyword,
-        parseInt(page),
-        parseInt(pageSize)
+      const [articles] = await pool.query(
+        `SELECT * FROM articles 
+         WHERE title LIKE ? OR content LIKE ? OR description LIKE ?
+         ORDER BY create_time DESC LIMIT ? OFFSET ?`,
+        [searchTerm, searchTerm, searchTerm, pageSize, offset]
       );
 
-      successResponse(
-        res,
-        {
-          total: result.total,
-          page: parseInt(page),
-          pageSize: parseInt(pageSize),
-          articles: result.articles,
-          keyword,
-        },
-        "搜索成功"
+      const [countResult] = await pool.query(
+        `SELECT COUNT(*) as total FROM articles 
+         WHERE title LIKE ? OR content LIKE ? OR description LIKE ?`,
+        [searchTerm, searchTerm, searchTerm]
       );
+
+      const total = countResult[0].total;
+
+      return { total, articles };
     } catch (err) {
-      next(err);
+      throw err;
     }
-  });
+  }
+
+  /**
+   * 获取文章统计
+   */
+  async getArticleStats(userId = null) {
+    try {
+      let query = "SELECT COUNT(*) as total FROM articles WHERE 1=1";
+      const params = [];
+
+      if (userId) {
+        query += " AND user_id = ?";
+        params.push(userId);
+      }
+
+      const [result] = await pool.query(query, params);
+
+      return result[0];
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  /**
+   * 获取热门文章
+   */
+  async getPopularArticles(limit = 10) {
+    try {
+      const [articles] = await pool.query(
+        `SELECT * FROM articles 
+         WHERE status = 1
+         ORDER BY views DESC LIMIT ?`,
+        [limit]
+      );
+
+      return articles;
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  /**
+   * 增加文章浏览数
+   */
+  async incrementViews(articleId) {
+    try {
+      const [result] = await pool.query(
+        "UPDATE articles SET views = views + 1 WHERE id = ?",
+        [articleId]
+      );
+
+      return result.affectedRows > 0;
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  /**
+   * 获取分类下的文章
+   */
+  async getArticlesByCategory(categoryId, page = 1, pageSize = 10) {
+    try {
+      const offset = (page - 1) * pageSize;
+
+      const [articles] = await pool.query(
+        `SELECT * FROM articles 
+         WHERE category_id = ? AND status = 1
+         ORDER BY create_time DESC LIMIT ? OFFSET ?`,
+        [categoryId, pageSize, offset]
+      );
+
+      const [countResult] = await pool.query(
+        "SELECT COUNT(*) as total FROM articles WHERE category_id = ? AND status = 1",
+        [categoryId]
+      );
+
+      const total = countResult[0].total;
+
+      return { total, articles };
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  /**
+   * 获取用户文章列表
+   */
+  async getUserArticles(userId, page = 1, pageSize = 10) {
+    try {
+      const offset = (page - 1) * pageSize;
+
+      const [articles] = await pool.query(
+        `SELECT * FROM articles 
+         WHERE user_id = ?
+         ORDER BY create_time DESC LIMIT ? OFFSET ?`,
+        [userId, pageSize, offset]
+      );
+
+      const [countResult] = await pool.query(
+        "SELECT COUNT(*) as total FROM articles WHERE user_id = ?",
+        [userId]
+      );
+
+      const total = countResult[0].total;
+
+      return { total, articles };
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  /**
+   * 批量删除文章
+   */
+  async deleteArticles(articleIds) {
+    try {
+      const placeholders = articleIds.map(() => "?").join(",");
+      const [result] = await pool.query(
+        `DELETE FROM articles WHERE id IN (${placeholders})`,
+        articleIds
+      );
+
+      return result.affectedRows;
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  /**
+   * 获取文章的标签
+   */
+  async getArticleTags(articleId) {
+    try {
+      const [tags] = await pool.query(
+        `SELECT t.* FROM tags t
+         INNER JOIN article_tags at ON t.id = at.tag_id
+         WHERE at.article_id = ?`,
+        [articleId]
+      );
+
+      return tags;
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  /**
+   * 添加文章标签
+   */
+  async addArticleTag(articleId, tagId) {
+    try {
+      const [result] = await pool.query(
+        "INSERT INTO article_tags (article_id, tag_id) VALUES (?, ?)",
+        [articleId, tagId]
+      );
+
+      return result.insertId;
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  /**
+   * 移除文章标签
+   */
+  async removeArticleTag(articleId, tagId) {
+    try {
+      const [result] = await pool.query(
+        "DELETE FROM article_tags WHERE article_id = ? AND tag_id = ?",
+        [articleId, tagId]
+      );
+
+      return result.affectedRows > 0;
+    } catch (err) {
+      throw err;
+    }
+  }
 }
 
 module.exports = new ArticleService();

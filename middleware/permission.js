@@ -13,10 +13,9 @@ const requireRole = (requiredRole) => {
 
     if (req.user.role < requiredRole) {
       const roleNames = { 0: "普通用户", 1: "管理员" };
-      const error = new AuthorizationError(
+      throw new AuthorizationError(
         `权限不足，需要 ${roleNames[requiredRole]} 权限`
       );
-      throw error;
     }
 
     next();

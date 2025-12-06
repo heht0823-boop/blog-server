@@ -110,14 +110,9 @@ const errorHandler = (err, req, res, next) => {
     msg = "服务暂时不可用";
   }
 
-  // 日志记录
-  if (statusCode >= 500) {
-    console.error(
-      `[错误] TraceId: ${req.traceId} | ${err.message}\n`,
-      err.stack
-    );
-  } else if (statusCode >= 400) {
-    console.warn(`[警告] TraceId: ${req.traceId} | ${msg}`);
+  // 只在开发环境打印错误堆栈
+  if (process.env.NODE_ENV === "development" && statusCode >= 500) {
+    console.error(`[错误] TraceId: ${req.traceId}\n`, err);
   }
 
   // 响应
