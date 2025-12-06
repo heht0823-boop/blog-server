@@ -5,12 +5,12 @@ require("dotenv").config();
 // 引入路由
 const userRoutes = require("./routes/user");
 const articleRoutes = require("./routes/article");
-const categoryRoutes = require("./routes/category");
-const tagRoutes = require("./routes/tag");
-const commentRoutes = require("./routes/comment");
+// const categoryRoutes = require("./routes/category");
+// const tagRoutes = require("./routes/tag");
+// const commentRoutes = require("./routes/comment");
 
 // 引入中间件
-const { errorHandler, routeNotFound } = require("./middleware/errorHandler");
+const { errorHandler } = require("./middleware/errorHandler");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -23,12 +23,11 @@ app.use("/uploads", express.static("uploads"));
 // 路由
 app.use("/api/user", userRoutes);
 app.use("/api/article", articleRoutes);
-app.use("/api/category", categoryRoutes);
-app.use("/api/tag", tagRoutes);
-app.use("/api/comment", commentRoutes);
+// app.use("/api/category", categoryRoutes);
+// app.use("/api/tag", tagRoutes);
+// app.use("/api/comment", commentRoutes);
 
 // 错误处理中间件
-app.use(routeNotFound); // 404 处理
 app.use(errorHandler); // 全局错误处理
 
 app.listen(PORT, () => {

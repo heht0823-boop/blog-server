@@ -4,36 +4,31 @@ const router = express.Router();
 const ArticleController = require("../controllers/articleController");
 const {
   validate,
-  userIdValidator,
   paginationValidator,
+  articleQueryValidator,
+  articleIdValidator,
+  articleCreateValidator,
+  articleUpdateValidator,
 } = require("../middleware/validator");
-const {
-  authMiddleware,
-} = require("../middleware/auth");
-const {
-  adminMiddleware,
-} = require("../middleware/permission");
+const { authMiddleware } = require("../middleware/auth");
+const { adminMiddleware } = require("../middleware/permission");
 
 // ===== 公开接口 =====
 
 // 获取文章列表
 router.get(
   "/",
-  validate(paginationValidator),
+  validate([...paginationValidator, ...articleQueryValidator]),
   ArticleController.getArticles
 );
 
 // 获取文章详情
-router.get(
-  "/:id",
-  validate(userIdValidator),
-  ArticleController.getArticle
-);
+router.get("/:id", validate(articleIdValidator), ArticleController.getArticle);
 
 // 搜索文章
 router.get(
   "/search",
-  validate(paginationValidator),
+  validate([...paginationValidator, ...articleSearchValidator]),
   ArticleController.searchArticles
 );
 
@@ -43,6 +38,7 @@ router.get(
 router.post(
   "/",
   authMiddleware,
+  validate(articleCreateValidator), // 添加验证器
   ArticleController.createArticle
 );
 
@@ -50,7 +46,7 @@ router.post(
 router.put(
   "/:id",
   authMiddleware,
-  validate(userIdValidator),
+  validate([...articleIdValidator, ...articleUpdateValidator]), // 更新验证器
   ArticleController.updateArticle
 );
 
@@ -58,7 +54,7 @@ router.put(
 router.delete(
   "/:id",
   authMiddleware,
-  validate(userIdValidator),
+  validate(articleIdValidator),
   ArticleController.deleteArticle
 );
 
@@ -77,7 +73,7 @@ router.put(
   "/:id/top",
   authMiddleware,
   adminMiddleware,
-  validate(userIdValidator),
+  validate(articleIdValidator),
   ArticleController.toggleTopStatus
 );
 

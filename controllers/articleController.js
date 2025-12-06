@@ -21,15 +21,10 @@ class ArticleController {
         categoryId,
         userId,
         status,
-        tags
+        tags,
       });
 
-      successResponse(
-        res,
-        { articleId },
-        "文章创建成功",
-        201
-      );
+      successResponse(res, { articleId }, "文章创建成功", 201);
     } catch (err) {
       next(err);
     }
@@ -41,13 +36,16 @@ class ArticleController {
   getArticles = asyncHandler(async (req, res, next) => {
     try {
       const { page = 1, pageSize = 10, categoryId, tagId, status } = req.query;
+      // 判断是否为管理员
+      const isAdmin = req.user && req.user.role === 1;
 
       const result = await articleService.getArticles(
         parseInt(page),
         parseInt(pageSize),
         categoryId ? parseInt(categoryId) : null,
         tagId ? parseInt(tagId) : null,
-        status !== undefined ? parseInt(status) : null
+        status !== undefined ? parseInt(status) : null,
+        isAdmin
       );
 
       successResponse(
@@ -64,14 +62,13 @@ class ArticleController {
       next(err);
     }
   });
-
   /**
    * 获取文章详情
    */
   getArticle = asyncHandler(async (req, res, next) => {
     try {
       const { id } = req.params;
-      
+
       const article = await articleService.getArticleById(id);
 
       if (!article) {
@@ -98,7 +95,7 @@ class ArticleController {
         cover,
         categoryId,
         status,
-        tags
+        tags,
       });
 
       if (!updated) {
@@ -174,6 +171,16 @@ class ArticleController {
         return errorResponse(res, null, "搜索关键词不能为空", 400);
       }
 
+      // 添加关键词长度验证
+      if (keyword.length < 1 || keyword.length > 50) {
+        return errorResponse(
+          res,
+          null,
+          "搜索关键词长度应在1-50个字符之间",
+          400
+        );
+      }
+
       const result = await articleService.searchArticles(
         keyword,
         parseInt(page),
@@ -187,7 +194,7 @@ class ArticleController {
           page: parseInt(page),
           pageSize: parseInt(pageSize),
           articles: result.articles,
-          keyword
+          keyword,
         },
         "搜索成功"
       );
