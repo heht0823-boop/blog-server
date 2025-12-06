@@ -1,4 +1,5 @@
 const articleService = require("../services/articleService");
+const { param } = require("express-validator");
 const {
   successResponse,
   errorResponse,
@@ -12,15 +13,15 @@ class ArticleController {
   createArticle = asyncHandler(async (req, res, next) => {
     try {
       const { title, content, cover, categoryId, status } = req.body;
-      const userId = req.user.id;
+      const userId = req.user.id; // 从认证中间件获取用户ID
 
       const articleId = await articleService.createArticle({
         title,
         content,
         cover,
-        categoryId,
-        userId,
+        category_id: categoryId, // 注意字段名映射
         status,
+        user_id: userId, // 传递用户ID
       });
 
       successResponse(res, { articleId }, "文章创建成功", 201);
@@ -28,7 +29,6 @@ class ArticleController {
       next(err);
     }
   });
-
   /**
    * 获取文章列表
    */
@@ -41,6 +41,7 @@ class ArticleController {
       // 处理过滤条件
       const filters = {};
       if (categoryId) filters.category_id = parseInt(categoryId);
+      if (tagId) filters.tag_id = parseInt(tagId);
       if (status !== undefined) filters.status = parseInt(status);
 
       // 如果不是管理员，只显示已发布的文章
@@ -93,15 +94,15 @@ class ArticleController {
   updateArticle = asyncHandler(async (req, res, next) => {
     try {
       const { id } = req.params;
-      const { title, content, cover, categoryId, status, tags } = req.body;
+      const { title, content, cover, categoryId, status, isTop } = req.body;
 
       const updated = await articleService.updateArticle(id, {
         title,
         content,
         cover,
-        categoryId,
+        category_id: categoryId, // 字段名映射
         status,
-        tags,
+        is_top: isTop, // 字段名映射
       });
 
       if (!updated) {
@@ -141,7 +142,9 @@ class ArticleController {
       const { id } = req.params;
       const { isTop } = req.body;
 
-      const updated = await articleService.toggleTopStatus(id, isTop);
+      const updated = await articleService.updateArticle(id, {
+        is_top: isTop,
+      });
 
       if (!updated) {
         return errorResponse(res, null, "文章不存在", 404);
@@ -152,14 +155,12 @@ class ArticleController {
       next(err);
     }
   });
-
   /**
    * 获取文章统计信息
    */
   getArticleStats = asyncHandler(async (req, res, next) => {
     try {
       const stats = await articleService.getArticleStats();
-
       successResponse(res, stats, "获取成功");
     } catch (err) {
       next(err);
@@ -203,6 +204,94 @@ class ArticleController {
           keyword,
         },
         "搜索成功"
+      );
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /**
+   * 获取热门文章
+   */
+  getPopularArticles = asyncHandler(async (req, res, next) => {
+    try {
+      const popularArticles = await articleService.getPopularArticles(10);
+      successResponse(res, popularArticles, "获取成功");
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /**
+   * 增加文章浏览数
+   */
+  incrementViews = asyncHandler(async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      const updated = await articleService.incrementViews(id);
+      
+      if (!updated) {
+        return errorResponse(res, null, "文章不存在", 404);
+      }
+      
+      successResponse(res, null, "浏览数增加成功");
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /**
+   * 获取分类下文章
+   */
+  getArticlesByCategory = asyncHandler(async (req, res, next) => {
+    try {
+      const { categoryId } = req.params;
+      const { page = 1, pageSize = 10 } = req.query;
+      
+      const result = await articleService.getArticlesByCategory(
+        categoryId,
+        parseInt(page),
+        parseInt(pageSize)
+      );
+      
+      successResponse(
+        res,
+        {
+          total: result.total,
+          page: parseInt(page),
+          pageSize: parseInt(pageSize),
+          articles: result.articles,
+        },
+        "获取成功"
+      );
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /**
+   * 获取用户文章列表
+   */
+  getUserArticles = asyncHandler(async (req, res, next) => {
+    try {
+      const { userId } = req.params;
+      const { page = 1, pageSize = 10 } = req.query;
+      
+      const result = await articleService.getUserArticles(
+        userId,
+        parseInt(page),
+        parseInt(pageSize)
+      );
+      
+      successResponse(
+        res,
+        {
+          total: result.total,
+          page: parseInt(page),
+          pageSize: parseInt(pageSize),
+          articles: result.articles,
+        },
+        "获取成功"
       );
     } catch (err) {
       next(err);

@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const { param } = require("express-validator"); // 添加这行引入
 
 const ArticleController = require("../controllers/articleController");
 const { validate } = require("../middleware/validator");
@@ -15,7 +16,6 @@ const { paginationValidator } = require("../middleware/userValidator");
 const { authMiddleware } = require("../middleware/auth");
 const { adminMiddleware } = require("../middleware/permission");
 
-// ... 其他代码保持不变
 // ===== 公开接口 =====
 
 // 获取文章列表
@@ -35,13 +35,43 @@ router.get(
   ArticleController.searchArticles
 );
 
+// 获取热门文章
+router.get("/popular", ArticleController.getPopularArticles);
+
+// 增加文章浏览数
+router.put(
+  "/:id/views",
+  validate(articleIdValidator),
+  ArticleController.incrementViews
+);
+
+// 获取分类下文章
+router.get(
+  "/category/:categoryId",
+  validate([
+    param("categoryId").isInt({ min: 1 }).withMessage("分类 ID 必须是正整数"),
+    ...paginationValidator,
+  ]),
+  ArticleController.getArticlesByCategory
+);
+
+// 获取用户文章列表
+router.get(
+  "/user/:userId",
+  validate([
+    param("userId").isInt({ min: 1 }).withMessage("用户 ID 必须是正整数"),
+    ...paginationValidator,
+  ]),
+  ArticleController.getUserArticles
+);
+
 // ===== 需要认证的接口 =====
 
 // 创建文章
 router.post(
   "/",
   authMiddleware,
-  validate(articleCreateValidator), // 添加验证器
+  validate(articleCreateValidator),
   ArticleController.createArticle
 );
 
@@ -49,7 +79,7 @@ router.post(
 router.put(
   "/:id",
   authMiddleware,
-  validate([...articleIdValidator, ...articleUpdateValidator]), // 更新验证器
+  validate([...articleIdValidator, ...articleUpdateValidator]),
   ArticleController.updateArticle
 );
 

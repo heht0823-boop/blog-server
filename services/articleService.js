@@ -26,47 +26,67 @@ class ArticleService {
   async getArticles(page = 1, pageSize = 10, filters = {}) {
     try {
       const offset = (page - 1) * pageSize;
-      let query = "SELECT * FROM articles WHERE 1=1";
+      let query = `
+        SELECT DISTINCT a.*, u.username as author_name, c.name as category_name 
+        FROM articles a 
+        LEFT JOIN users u ON a.user_id = u.id 
+        LEFT JOIN categories c ON a.category_id = c.id 
+        WHERE 1=1`;
       const params = [];
+      const countParams = [];
 
       // 应用过滤条件
       if (filters.category_id) {
-        query += " AND category_id = ?";
+        query += " AND a.category_id = ?";
         params.push(filters.category_id);
+        countParams.push(filters.category_id);
       }
 
       if (filters.status) {
-        query += " AND status = ?";
+        query += " AND a.status = ?";
         params.push(filters.status);
+        countParams.push(filters.status);
       }
 
       if (filters.user_id) {
-        query += " AND user_id = ?";
+        query += " AND a.user_id = ?";
         params.push(filters.user_id);
+        countParams.push(filters.user_id);
       }
 
-      query += " ORDER BY create_time DESC LIMIT ? OFFSET ?";
+      // 标签过滤
+      if (filters.tag_id) {
+        query += " AND EXISTS (SELECT 1 FROM article_tags at WHERE at.article_id = a.id AND at.tag_id = ?)";
+        params.push(filters.tag_id);
+        countParams.push(filters.tag_id);
+      }
+
+      query += " ORDER BY a.create_time DESC LIMIT ? OFFSET ?";
       params.push(pageSize, offset);
 
       const [articles] = await pool.query(query, params);
 
       // 获取总数
-      let countQuery = "SELECT COUNT(*) as total FROM articles WHERE 1=1";
-      const countParams = [];
+      let countQuery = `
+        SELECT COUNT(DISTINCT a.id) as total 
+        FROM articles a 
+        WHERE 1=1`;
 
       if (filters.category_id) {
-        countQuery += " AND category_id = ?";
-        countParams.push(filters.category_id);
+        countQuery += " AND a.category_id = ?";
       }
 
       if (filters.status) {
-        countQuery += " AND status = ?";
-        countParams.push(filters.status);
+        countQuery += " AND a.status = ?";
       }
 
       if (filters.user_id) {
-        countQuery += " AND user_id = ?";
-        countParams.push(filters.user_id);
+        countQuery += " AND a.user_id = ?";
+      }
+
+      // 标签过滤
+      if (filters.tag_id) {
+        countQuery += " AND EXISTS (SELECT 1 FROM article_tags at WHERE at.article_id = a.id AND at.tag_id = ?)";
       }
 
       const [countResult] = await pool.query(countQuery, countParams);
