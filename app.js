@@ -8,6 +8,7 @@ const { errorHandler, addTraceId } = require("./middleware/errorHandler");
 const { testDBConnection } = require("./config/db");
 
 const userRouter = require("./routes/user");
+const articleRouter = require("./routes/article");
 
 const app = express();
 
@@ -68,6 +69,7 @@ app.get("/", (req, res) => {
 
 // ===== API 路由 =====
 app.use("/api/user", userRouter);
+app.use("/api/article", articleRouter);
 
 // ===== 404 处理 =====
 app.use((req, res) => {

@@ -4,13 +4,14 @@ const router = express.Router();
 const ArticleController = require("../controllers/articleController");
 const { validate } = require("../middleware/validator");
 const {
-  paginationValidator,
   articleQueryValidator,
   articleIdValidator,
   articleCreateValidator,
   articleUpdateValidator,
   articleSearchValidator,
-} = require("../middleware/articleValidator"); // 修改这里
+} = require("../middleware/articleValidator");
+// 从 userValidator.js 导入 paginationValidator
+const { paginationValidator } = require("../middleware/userValidator");
 const { authMiddleware } = require("../middleware/auth");
 const { adminMiddleware } = require("../middleware/permission");
 

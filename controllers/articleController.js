@@ -11,7 +11,7 @@ class ArticleController {
    */
   createArticle = asyncHandler(async (req, res, next) => {
     try {
-      const { title, content, cover, categoryId, status, tags } = req.body;
+      const { title, content, cover, categoryId, status } = req.body;
       const userId = req.user.id;
 
       const articleId = await articleService.createArticle({
@@ -21,7 +21,6 @@ class ArticleController {
         categoryId,
         userId,
         status,
-        tags,
       });
 
       successResponse(res, { articleId }, "文章创建成功", 201);
@@ -39,13 +38,20 @@ class ArticleController {
       // 判断是否为管理员
       const isAdmin = req.user && req.user.role === 1;
 
+      // 处理过滤条件
+      const filters = {};
+      if (categoryId) filters.category_id = parseInt(categoryId);
+      if (status !== undefined) filters.status = parseInt(status);
+
+      // 如果不是管理员，只显示已发布的文章
+      if (!isAdmin) {
+        filters.status = 1;
+      }
+
       const result = await articleService.getArticles(
         parseInt(page),
         parseInt(pageSize),
-        categoryId ? parseInt(categoryId) : null,
-        tagId ? parseInt(tagId) : null,
-        status !== undefined ? parseInt(status) : null,
-        isAdmin
+        filters
       );
 
       successResponse(

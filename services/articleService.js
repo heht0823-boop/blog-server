@@ -5,14 +5,13 @@ class ArticleService {
    * 创建文章
    */
   async createArticle(articleData) {
-    const { title, content, description, category_id, tags, status, user_id } =
-      articleData;
+    const { title, content, cover, category_id, status, user_id } = articleData;
 
     try {
       const [result] = await pool.query(
-        `INSERT INTO articles (title, content, description, category_id, status, user_id) 
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [title, content, description, category_id, status || 1, user_id]
+        `INSERT INTO articles (title, content, cover, category_id, status, user_id) 
+       VALUES (?, ?, ?, ?, ?, ?)`,
+        [title, content, cover, category_id, status || 1, user_id]
       );
 
       return result.insertId;
@@ -103,9 +102,10 @@ class ArticleService {
       const allowedFields = [
         "title",
         "content",
-        "description",
+        "cover",
         "category_id",
         "status",
+        "is_top", // 添加置顶字段
       ];
       const fields = [];
       const values = [];
@@ -135,7 +135,6 @@ class ArticleService {
       throw err;
     }
   }
-
   /**
    * 删除文章
    */
@@ -161,15 +160,15 @@ class ArticleService {
 
       const [articles] = await pool.query(
         `SELECT * FROM articles 
-         WHERE title LIKE ? OR content LIKE ? OR description LIKE ?
-         ORDER BY create_time DESC LIMIT ? OFFSET ?`,
-        [searchTerm, searchTerm, searchTerm, pageSize, offset]
+       WHERE title LIKE ? OR content LIKE ?
+       ORDER BY create_time DESC LIMIT ? OFFSET ?`,
+        [searchTerm, searchTerm, pageSize, offset]
       );
 
       const [countResult] = await pool.query(
         `SELECT COUNT(*) as total FROM articles 
-         WHERE title LIKE ? OR content LIKE ? OR description LIKE ?`,
-        [searchTerm, searchTerm, searchTerm]
+       WHERE title LIKE ? OR content LIKE ?`,
+        [searchTerm, searchTerm]
       );
 
       const total = countResult[0].total;

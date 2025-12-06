@@ -29,6 +29,5 @@ async function testDBConnection() {
     process.exit(1); // 连接失败则退出服务,避免服务器假启动导致后续接口全部报错
   }
 }
-testDBConnection();
 
 module.exports = { pool, testDBConnection };

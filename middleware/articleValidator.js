@@ -5,7 +5,6 @@ const { body, param, query } = require("express-validator");
 const articleIdValidator = [
   param("id").isInt({ min: 1 }).withMessage("文章 ID 必须是正整数"),
 ];
-
 // ===== 文章创建验证 =====
 const articleCreateValidator = [
   body("title")
@@ -27,7 +26,7 @@ const articleCreateValidator = [
     .isInt({ min: 0, max: 1 })
     .withMessage("状态值必须是 0 或 1"),
 
-  body("tags").optional().isArray().withMessage("标签必须是数组格式"),
+  body("cover").optional().trim().isURL().withMessage("封面 URL 格式不正确"),
 ];
 
 // ===== 文章更新验证 =====
@@ -50,7 +49,12 @@ const articleUpdateValidator = [
     .isInt({ min: 0, max: 1 })
     .withMessage("状态值必须是 0 或 1"),
 
-  body("tags").optional().isArray().withMessage("标签必须是数组格式"),
+  body("cover").optional().trim().isURL().withMessage("封面 URL 格式不正确"),
+
+  body("isTop")
+    .optional()
+    .isInt({ min: 0, max: 1 })
+    .withMessage("置顶状态必须是 0 或 1"),
 ];
 
 // ===== 文章查询验证 =====
