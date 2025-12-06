@@ -10,6 +10,7 @@ const { testDBConnection } = require("./config/db");
 const userRouter = require("./routes/user");
 const articleRouter = require("./routes/article");
 const categoryRouter = require("./routes/category");
+const tagRouter = require("./routes/tag");
 
 const app = express();
 
@@ -72,6 +73,7 @@ app.get("/", (req, res) => {
 app.use("/api/user", userRouter);
 app.use("/api/article", articleRouter);
 app.use("/api/category", categoryRouter);
+app.use("/api/tag", tagRouter);
 
 // ===== 404 处理 =====
 app.use((req, res) => {
