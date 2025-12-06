@@ -97,6 +97,9 @@ router.get(
   UserController.getUserProfile
 );
 
+// 上传头像
+router.post("/me/avatar", authMiddleware, UserController.uploadAvatar);
+
 // ===== 管理员接口 =====
 
 // 获取所有用户

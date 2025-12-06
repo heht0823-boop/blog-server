@@ -146,7 +146,9 @@ class UserService {
     const countParams = [];
     const dataParams = [];
 
-    if (role !== undefined) {
+    // 只有当 role 参数不为 undefined 且不是管理员查询所有用户时才应用过滤
+    // 如果 role=null 或者不传 role 参数，则显示所有用户
+    if (role !== undefined && role !== null) {
       countQuery += " WHERE role = ?";
       dataQuery += " WHERE role = ?";
       countParams.push(role);
@@ -156,14 +158,13 @@ class UserService {
     const [countResult] = await pool.query(countQuery, countParams);
     const total = countResult[0].total;
 
-    dataQuery += " LIMIT ? OFFSET ?";
+    dataQuery += " ORDER BY id DESC LIMIT ? OFFSET ?";
     dataParams.push(pageSize, offset);
 
     const [users] = await pool.query(dataQuery, dataParams);
 
     return { total, users };
   }
-
   /**
    * 删除用户
    */

@@ -1,5 +1,6 @@
 const userService = require("../services/userService");
 const jwtUtil = require("../utils/jwt");
+const { upload } = require("../utils/upload");
 const {
   successResponse,
   errorResponse,
@@ -348,24 +349,35 @@ class UserController {
   });
 
   /**
-   * 上传头像（可选功能）
+   * 上传头像
    */
   uploadAvatar = asyncHandler(async (req, res, next) => {
-    if (!req.file) {
-      return errorResponse(res, null, "未上传文件", 400);
-    }
+    // 使用 multer 处理文件上传
+    upload.single("avatar")(req, res, async (err) => {
+      if (err) {
+        return errorResponse(res, err, err.message, 400);
+      }
 
-    const avatarUrl = `/uploads/${req.file.filename}`;
+      if (!req.file) {
+        return errorResponse(res, null, "请选择文件", 400);
+      }
 
-    const updated = await userService.updateUser(req.user.id, {
-      avatar: avatarUrl,
+      // 构建文件访问URL
+      const avatarUrl = `${req.protocol}://${req.get("host")}/uploads/${
+        req.file.filename
+      }`;
+
+      // 更新用户头像
+      const updated = await userService.updateUser(req.user.id, {
+        avatar: avatarUrl,
+      });
+
+      if (updated === 0) {
+        return errorResponse(res, null, "头像更新失败", 400);
+      }
+
+      successResponse(res, { avatar: avatarUrl }, "头像上传成功");
     });
-
-    if (updated === 0) {
-      return errorResponse(res, null, "更新失败", 400);
-    }
-
-    successResponse(res, { avatar: avatarUrl }, "上传成功", 201);
   });
 }
 
