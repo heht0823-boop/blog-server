@@ -11,6 +11,7 @@ const userRouter = require("./routes/user");
 const articleRouter = require("./routes/article");
 const categoryRouter = require("./routes/category");
 const tagRouter = require("./routes/tag");
+const commentRouter = require("./routes/comment");
 
 const app = express();
 
@@ -74,6 +75,7 @@ app.use("/api/user", userRouter);
 app.use("/api/article", articleRouter);
 app.use("/api/category", categoryRouter);
 app.use("/api/tag", tagRouter);
+app.use("/api/comment", commentRouter);
 
 // ===== 404 处理 =====
 app.use((req, res) => {
