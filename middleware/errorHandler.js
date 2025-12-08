@@ -44,12 +44,12 @@ class NotFoundError extends AppError {
 const successResponse = (
   res,
   data = null,
-  msg = "请求成功",
+  message = "请求成功",
   statusCode = 200
 ) => {
   return res.status(statusCode).json({
     code: statusCode,
-    msg,
+    message,
     data,
     timestamp: new Date().toISOString(),
     traceId: res.req?.traceId,
@@ -62,12 +62,12 @@ const successResponse = (
 const errorResponse = (
   res,
   error = null,
-  msg = "请求失败",
+  message = "请求失败",
   statusCode = 500
 ) => {
   return res.status(statusCode).json({
     code: statusCode,
-    msg,
+    message,
     data: null,
     timestamp: new Date().toISOString(),
     traceId: res.req?.traceId,
