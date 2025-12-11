@@ -86,28 +86,26 @@ const addTraceId = (req, res, next) => {
   next();
 };
 
-/**
- * 全局错误处理中间件
- */
+// 全局错误处理中间件
 const errorHandler = (err, req, res, next) => {
   // 默认错误信息
   let statusCode = err.statusCode || 500;
-  let msg = err.message || "服务器内部错误";
+  let message = err.message || "服务器内部错误"; // 将 msg 改为 message
   let code = err.code || statusCode;
 
   // 特定错误处理
   if (err.name === "ValidationError") {
     statusCode = 400;
     code = "VALIDATION_ERROR";
-    msg = err.message || "参数验证失败";
+    message = err.message || "参数验证失败"; // 将 msg 改为 message
   } else if (err.name === "SyntaxError" && "body" in err) {
     statusCode = 400;
     code = "JSON_PARSE_ERROR";
-    msg = "JSON 格式错误";
+    message = "JSON 格式错误"; // 将 msg 改为 message
   } else if (err.code === "ENOTFOUND") {
     statusCode = 503;
     code = "SERVICE_UNAVAILABLE";
-    msg = "服务暂时不可用";
+    message = "服务暂时不可用"; // 将 msg 改为 message
   }
 
   // 只在开发环境打印错误堆栈
@@ -115,17 +113,16 @@ const errorHandler = (err, req, res, next) => {
     console.error(`[错误] TraceId: ${req.traceId}\n`, err);
   }
 
-  // 响应
+  // 响应 - 统一使用 message 字段
   res.status(statusCode).json({
     code,
-    msg,
+    message, // 将 msg 改为 message
     data: null,
     timestamp: new Date().toISOString(),
     traceId: req.traceId,
     ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
   });
 };
-
 /**
  * 异步路由错误捕获包装器
  */
