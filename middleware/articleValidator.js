@@ -27,14 +27,10 @@ const articleCreateValidator = [
     .isInt({ min: 1 })
     .withMessage("分类 ID 必须是正整数"),
 
-  body("status")
-    .optional()
-    .isInt({ min: 0, max: 1 })
-    .withMessage("状态值必须是 0 或 1"),
-
   body("cover").optional().trim().isURL().withMessage("封面 URL 格式不正确"),
-];
 
+  // 移除status验证，因为创建时不再接收status参数
+];
 // ===== 文章更新验证 =====
 const articleUpdateValidator = [
   body("title")
@@ -62,7 +58,6 @@ const articleUpdateValidator = [
     .isInt({ min: 0, max: 1 })
     .withMessage("置顶状态必须是 0 或 1"),
 ];
-
 // ===== 文章查询验证 =====
 const articleQueryValidator = [
   query("categoryId")

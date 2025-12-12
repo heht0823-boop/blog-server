@@ -12,7 +12,7 @@ class ArticleController {
    */
   createArticle = asyncHandler(async (req, res, next) => {
     try {
-      const { title, content, cover, categoryId, status } = req.body;
+      const { title, content, cover, categoryId } = req.body;
       const userId = req.user.id; // 从认证中间件获取用户ID
 
       const articleId = await articleService.createArticle({
@@ -20,16 +20,14 @@ class ArticleController {
         content,
         cover,
         category_id: categoryId, // 注意字段名映射
-        status,
         user_id: userId, // 传递用户ID
       });
 
-      successResponse(res, { articleId }, "文章创建成功", 201);
+      successResponse(res, { articleId }, "文章创建成功，等待审核", 201);
     } catch (err) {
       next(err);
     }
   });
-
   /**
    * 获取文章列表
    */
@@ -103,20 +101,38 @@ class ArticleController {
       // 验证文章所有权
       await articleService.verifyArticleOwnership(id, userId, userRole);
 
-      const updated = await articleService.updateArticle(id, {
+      const updateData = {
         title,
         content,
         cover,
         category_id: categoryId,
-        status,
         is_top: isTop,
-      });
+      };
+
+      // 只有管理员可以修改status字段
+      if (status !== undefined) {
+        updateData.status = status;
+      }
+
+      const updated = await articleService.updateArticle(
+        id,
+        updateData,
+        userRole === 1 ? "admin" : "user"
+      );
 
       if (!updated) {
         return errorResponse(res, null, "文章更新失败", 400);
       }
 
-      successResponse(res, null, "文章更新成功");
+      // 提供更友好的提示信息
+      let message = "文章更新成功";
+      if (status === 1 && userRole === 1) {
+        message = "文章已审核通过";
+      } else if (status === 0 && userRole === 1) {
+        message = "文章已设为待审核";
+      }
+
+      successResponse(res, null, message);
     } catch (err) {
       if (err.message === "无权操作此文章") {
         return errorResponse(res, null, "权限不足", 403);
@@ -127,7 +143,6 @@ class ArticleController {
       next(err);
     }
   });
-
   /**
    * 删除文章
    */

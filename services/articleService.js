@@ -5,13 +5,13 @@ class ArticleService {
    * 创建文章
    */
   async createArticle(articleData) {
-    const { title, content, cover, category_id, status, user_id } = articleData;
+    const { title, content, cover, category_id, user_id } = articleData;
 
     try {
       const [result] = await pool.query(
         `INSERT INTO articles (title, content, cover, category_id, status, user_id) 
        VALUES (?, ?, ?, ?, ?, ?)`,
-        [title, content, cover, category_id, status || 1, user_id]
+        [title, content, cover, category_id, 0, user_id]
       );
 
       return result.insertId;
@@ -117,47 +117,46 @@ class ArticleService {
   }
 
   /**
-   * 更新文章
+   * 更新文章（仅管理员可修改status为1）
    */
-  async updateArticle(articleId, updateData) {
-    try {
-      const allowedFields = [
-        "title",
-        "content",
-        "cover",
-        "category_id",
-        "status",
-        "is_top", // 添加置顶字段
-      ];
-      const fields = [];
-      const values = [];
+  async updateArticle(articleId, updateData, userRole = "user") {
+    const allowedFields = [
+      "title",
+      "content",
+      "cover",
+      "category_id",
+      "status",
+      "is_top",
+    ];
+    const fields = [];
+    const values = [];
 
-      Object.entries(updateData).forEach(([key, value]) => {
-        if (allowedFields.includes(key) && value !== undefined) {
-          fields.push(`${key} = ?`);
-          values.push(value);
+    Object.entries(updateData).forEach(([key, value]) => {
+      if (allowedFields.includes(key) && value !== undefined) {
+        // 权限控制：只有管理员可以将status设置为1
+        if (key === "status" && value === 1 && userRole !== "admin") {
+          return; // 普通用户无法修改status为1
         }
-      });
-
-      if (fields.length === 0) {
-        return 0;
+        fields.push(`${key} = ?`);
+        values.push(value);
       }
+    });
 
-      values.push(articleId);
-
-      const [result] = await pool.query(
-        `UPDATE articles SET ${fields.join(
-          ", "
-        )}, update_time = NOW() WHERE id = ?`,
-        values
-      );
-
-      return result.affectedRows;
-    } catch (err) {
-      throw err;
+    if (fields.length === 0) {
+      return 0;
     }
-  }
 
+    values.push(articleId);
+
+    const [result] = await pool.query(
+      `UPDATE articles SET ${fields.join(
+        ", "
+      )}, update_time = NOW() WHERE id = ?`,
+      values
+    );
+
+    return result.affectedRows;
+  }
   /**
    * 删除文章
    */
