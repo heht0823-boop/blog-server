@@ -8,10 +8,44 @@ class ArticleService {
     const { title, content, cover, category_id, user_id } = articleData;
 
     try {
+      // 检查是否已存在相同标题的文章
+      const [existingArticles] = await pool.query(
+        "SELECT id FROM articles WHERE title = ?",
+        [title]
+      );
+
+      if (existingArticles.length > 0) {
+        throw new Error("已存在相同标题的文章");
+      }
+
+      // 如果提供了 category_id，则验证该分类是否存在
+      if (category_id !== undefined && category_id !== null) {
+        // 确保 category_id 是有效数字
+        const categoryIdNum = parseInt(category_id, 10);
+        if (isNaN(categoryIdNum)) {
+          throw new Error("分类ID格式不正确");
+        }
+
+        const [categories] = await pool.query(
+          "SELECT id FROM categories WHERE id = ?",
+          [categoryIdNum]
+        );
+
+        if (categories.length === 0) {
+          throw new Error("指定的分类不存在");
+        }
+      }
+
+      // 处理 category_id，如果为 null 或 undefined 则设置为 null
+      const categoryId =
+        category_id !== undefined && category_id !== null
+          ? parseInt(category_id, 10)
+          : null;
+
       const [result] = await pool.query(
         `INSERT INTO articles (title, content, cover, category_id, status, user_id) 
        VALUES (?, ?, ?, ?, ?, ?)`,
-        [title, content, cover, category_id, 0, user_id]
+        [title, content, cover, categoryId, 0, user_id]
       );
 
       return result.insertId;
@@ -19,19 +53,18 @@ class ArticleService {
       throw err;
     }
   }
-
   /**
    * 获取文章列表（分页）
    */
-  async getArticles(page = 1, pageSize = 10, filters = {}) {
+  async getArticles(page = 1, pageSize = 10, filters = {}, userRole = "user") {
     try {
       const offset = (page - 1) * pageSize;
       let query = `
-        SELECT DISTINCT a.*, u.username as author_name, c.name as category_name 
-        FROM articles a 
-        LEFT JOIN users u ON a.user_id = u.id 
-        LEFT JOIN categories c ON a.category_id = c.id 
-        WHERE 1=1`;
+      SELECT DISTINCT a.*, u.username as author_name, c.name as category_name 
+      FROM articles a 
+      LEFT JOIN users u ON a.user_id = u.id 
+      LEFT JOIN categories c ON a.category_id = c.id 
+      WHERE 1=1`;
       const params = [];
       const countParams = [];
 
@@ -40,12 +73,6 @@ class ArticleService {
         query += " AND a.category_id = ?";
         params.push(filters.category_id);
         countParams.push(filters.category_id);
-      }
-
-      if (filters.status) {
-        query += " AND a.status = ?";
-        params.push(filters.status);
-        countParams.push(filters.status);
       }
 
       if (filters.user_id) {
@@ -62,6 +89,18 @@ class ArticleService {
         countParams.push(filters.tag_id);
       }
 
+      // 权限控制
+      if (userRole !== "admin") {
+        // 普通用户或未登录用户只能查看已发布文章
+        query += " AND a.status = 1";
+      } else if (filters.status !== undefined) {
+        // 管理员可以指定status过滤
+        query += " AND a.status = ?";
+        params.push(filters.status);
+        countParams.push(filters.status);
+      }
+      // 如果管理员没有指定status，则不添加状态过滤条件，返回所有状态的文章
+
       query += " ORDER BY a.create_time DESC LIMIT ? OFFSET ?";
       params.push(pageSize, offset);
 
@@ -69,16 +108,12 @@ class ArticleService {
 
       // 获取总数
       let countQuery = `
-        SELECT COUNT(DISTINCT a.id) as total 
-        FROM articles a 
-        WHERE 1=1`;
+      SELECT COUNT(DISTINCT a.id) as total 
+      FROM articles a 
+      WHERE 1=1`;
 
       if (filters.category_id) {
         countQuery += " AND a.category_id = ?";
-      }
-
-      if (filters.status) {
-        countQuery += " AND a.status = ?";
       }
 
       if (filters.user_id) {
@@ -91,6 +126,16 @@ class ArticleService {
           " AND EXISTS (SELECT 1 FROM article_tags at WHERE at.article_id = a.id AND at.tag_id = ?)";
       }
 
+      // 权限控制
+      if (userRole !== "admin") {
+        // 普通用户或未登录用户只能查看已发布文章
+        countQuery += " AND a.status = 1";
+      } else if (filters.status !== undefined) {
+        // 管理员可以指定status过滤
+        countQuery += " AND a.status = ?";
+      }
+      // 如果管理员没有指定status，则不添加状态过滤条件，返回所有状态的文章
+
       const [countResult] = await pool.query(countQuery, countParams);
       const total = countResult[0].total;
 
@@ -99,16 +144,20 @@ class ArticleService {
       throw err;
     }
   }
-
   /**
-   * 获取单篇文章详情
+   * 获取单篇文章详情（带权限控制）
    */
-  async getArticleById(articleId) {
+  async getArticleById(articleId, userRole = "user") {
     try {
-      const [articles] = await pool.query(
-        "SELECT * FROM articles WHERE id = ?",
-        [articleId]
-      );
+      let query = "SELECT * FROM articles WHERE id = ?";
+      const params = [articleId];
+
+      // 非管理员只能查看已发布文章
+      if (userRole !== "admin") {
+        query += " AND status = 1";
+      }
+
+      const [articles] = await pool.query(query, params);
 
       return articles[0] || null;
     } catch (err) {
@@ -130,6 +179,26 @@ class ArticleService {
     ];
     const fields = [];
     const values = [];
+
+    // 如果提供了 category_id，则验证该分类是否存在
+    if (updateData.category_id !== undefined && updateData.category_id !== null) {
+      const categoryIdNum = parseInt(updateData.category_id, 10);
+      if (isNaN(categoryIdNum)) {
+        throw new Error("分类ID格式不正确");
+      }
+
+      const [categories] = await pool.query(
+        "SELECT id FROM categories WHERE id = ?",
+        [categoryIdNum]
+      );
+
+      if (categories.length === 0) {
+        throw new Error("指定的分类不存在");
+      }
+      
+      // 更新数据中的 category_id 为验证后的数字
+      updateData.category_id = categoryIdNum;
+    }
 
     Object.entries(updateData).forEach(([key, value]) => {
       if (allowedFields.includes(key) && value !== undefined) {
@@ -175,26 +244,33 @@ class ArticleService {
   /**
    * 搜索文章
    */
-  async searchArticles(keyword, page = 1, pageSize = 10) {
+  async searchArticles(keyword, page = 1, pageSize = 10, userRole = "user") {
     try {
       const offset = (page - 1) * pageSize;
       // 去除关键词两端的引号和空格
       const cleanKeyword = keyword.replace(/^["']|["']$/g, "").trim();
       const searchTerm = `%${cleanKeyword}%`;
 
+      let baseQuery = `SELECT * FROM articles 
+                     WHERE (title LIKE ? OR content LIKE ?)`;
+      let baseCountQuery = `SELECT COUNT(*) as total FROM articles 
+                          WHERE (title LIKE ? OR content LIKE ?)`;
+
+      const queryParams = [searchTerm, searchTerm];
+      const countParams = [searchTerm, searchTerm];
+
+      // 权限控制：非管理员只能搜索已发布文章
+      if (userRole !== "admin") {
+        baseQuery += " AND status = 1";
+        baseCountQuery += " AND status = 1";
+      }
+
       const [articles] = await pool.query(
-        `SELECT * FROM articles 
-       WHERE (title LIKE ? OR content LIKE ?) AND status = 1
-       ORDER BY create_time DESC LIMIT ? OFFSET ?`,
-        [searchTerm, searchTerm, pageSize, offset]
+        `${baseQuery} ORDER BY create_time DESC LIMIT ? OFFSET ?`,
+        [...queryParams, pageSize, offset]
       );
 
-      const [countResult] = await pool.query(
-        `SELECT COUNT(*) as total FROM articles 
-       WHERE (title LIKE ? OR content LIKE ?) AND status = 1`,
-        [searchTerm, searchTerm]
-      );
-
+      const [countResult] = await pool.query(baseCountQuery, countParams);
       const total = countResult[0].total;
 
       return { total, articles };
@@ -202,7 +278,6 @@ class ArticleService {
       throw err;
     }
   }
-
   /**
    * 获取文章统计
    */
@@ -227,21 +302,26 @@ class ArticleService {
   /**
    * 获取热门文章
    */
-  async getPopularArticles(limit = 10) {
+  async getPopularArticles(limit = 10, userRole = "user") {
     try {
-      const [articles] = await pool.query(
-        `SELECT * FROM articles 
-         WHERE status = 1
-         ORDER BY read_count DESC LIMIT ?`,
-        [limit]
-      );
+      let query = `SELECT * FROM articles WHERE 1=1`;
+      const params = [];
+
+      // 权限控制：非管理员只能获取已发布文章
+      if (userRole !== "admin") {
+        query += " AND status = 1";
+      }
+
+      query += " ORDER BY read_count DESC LIMIT ?";
+      params.push(limit);
+
+      const [articles] = await pool.query(query, params);
 
       return articles;
     } catch (err) {
       throw err;
     }
   }
-
   /**
    * 增加文章浏览数
    */
@@ -261,22 +341,38 @@ class ArticleService {
   /**
    * 获取分类下的文章
    */
-  async getArticlesByCategory(categoryId, page = 1, pageSize = 10) {
+  async getArticlesByCategory(
+    categoryId,
+    page = 1,
+    pageSize = 10,
+    userRole = "user"
+  ) {
     try {
       const offset = (page - 1) * pageSize;
 
-      const [articles] = await pool.query(
-        `SELECT * FROM articles 
-         WHERE category_id = ? AND status = 1
-         ORDER BY create_time DESC LIMIT ? OFFSET ?`,
-        [categoryId, pageSize, offset]
-      );
+      let query = `SELECT * FROM articles WHERE category_id = ?`;
+      const params = [categoryId];
 
-      const [countResult] = await pool.query(
-        "SELECT COUNT(*) as total FROM articles WHERE category_id = ? AND status = 1",
-        [categoryId]
-      );
+      // 权限控制：非管理员只能获取已发布文章
+      if (userRole !== "admin") {
+        query += " AND status = 1";
+      }
 
+      query += " ORDER BY create_time DESC LIMIT ? OFFSET ?";
+      params.push(pageSize, offset);
+
+      const [articles] = await pool.query(query, params);
+
+      // 获取总数
+      let countQuery =
+        "SELECT COUNT(*) as total FROM articles WHERE category_id = ?";
+      const countParams = [categoryId];
+
+      if (userRole !== "admin") {
+        countQuery += " AND status = 1";
+      }
+
+      const [countResult] = await pool.query(countQuery, countParams);
       const total = countResult[0].total;
 
       return { total, articles };
@@ -286,23 +382,36 @@ class ArticleService {
   }
 
   /**
-   * 获取用户文章列表
+   * 获取用户文章列表（带权限控制）
    */
-  async getUserArticles(userId, page = 1, pageSize = 10) {
+  async getUserArticles(
+    userId,
+    page = 1,
+    pageSize = 10,
+    currentUserRole = "user",
+    currentUserId = null
+  ) {
     try {
       const offset = (page - 1) * pageSize;
 
-      const [articles] = await pool.query(
-        `SELECT * FROM articles 
-         WHERE user_id = ?
-         ORDER BY create_time DESC LIMIT ? OFFSET ?`,
-        [userId, pageSize, offset]
-      );
+      let query = `SELECT * FROM articles WHERE user_id = ?`;
+      let countQuery =
+        "SELECT COUNT(*) as total FROM articles WHERE user_id = ?";
+      const params = [userId];
+      const countParams = [userId];
 
-      const [countResult] = await pool.query(
-        "SELECT COUNT(*) as total FROM articles WHERE user_id = ?",
-        [userId]
-      );
+      // 非管理员且不是查看自己的文章时，只显示已发布文章
+      if (currentUserRole !== "admin" && currentUserId !== userId) {
+        query += " AND status = 1";
+        countQuery += " AND status = 1";
+      }
+
+      query += " ORDER BY create_time DESC LIMIT ? OFFSET ?";
+      params.push(pageSize, offset);
+
+      const [articles] = await pool.query(query, params);
+
+      const [countResult] = await pool.query(countQuery, countParams);
 
       const total = countResult[0].total;
 
@@ -348,10 +457,21 @@ class ArticleService {
   }
 
   /**
-   * 添加文章标签
+   * 添加文章标签（避免重复关联）
    */
   async addArticleTag(articleId, tagId) {
     try {
+      // 先检查是否已存在关联
+      const [existing] = await pool.query(
+        "SELECT 1 FROM article_tags WHERE article_id = ? AND tag_id = ?",
+        [articleId, tagId]
+      );
+
+      // 如果已存在，则不重复插入
+      if (existing.length > 0) {
+        return null; // 或者抛出特定错误
+      }
+
       const [result] = await pool.query(
         "INSERT INTO article_tags (article_id, tag_id) VALUES (?, ?)",
         [articleId, tagId]
@@ -362,7 +482,6 @@ class ArticleService {
       throw err;
     }
   }
-
   /**
    * 移除文章标签
    */
@@ -393,8 +512,8 @@ class ArticleService {
         throw new Error("文章不存在");
       }
 
-      // 管理员或文章作者可以操作
-      if (userRole !== 1 && articles[0].user_id != userId) {
+      // 统一使用字符串形式判断角色
+      if (userRole !== "admin" && articles[0].user_id != userId) {
         throw new Error("无权操作此文章");
       }
 

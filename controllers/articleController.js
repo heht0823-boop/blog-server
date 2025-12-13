@@ -12,6 +12,11 @@ class ArticleController {
    */
   createArticle = asyncHandler(async (req, res, next) => {
     try {
+      // 添加用户认证检查
+      if (!req.user) {
+        return errorResponse(res, null, "用户未认证", 401);
+      }
+
       const { title, content, cover, categoryId } = req.body;
       const userId = req.user.id; // 从认证中间件获取用户ID
 
@@ -25,6 +30,276 @@ class ArticleController {
 
       successResponse(res, { articleId }, "文章创建成功，等待审核", 201);
     } catch (err) {
+      if (err.message === "已存在相同标题的文章") {
+        return errorResponse(res, null, "已存在相同标题的文章", 400);
+      }
+      next(err);
+    }
+  });
+
+  /**
+   * 更新文章
+   */
+  updateArticle = asyncHandler(async (req, res, next) => {
+    try {
+      // 添加用户认证检查
+      if (!req.user) {
+        return errorResponse(res, null, "用户未认证", 401);
+      }
+
+      const { id } = req.params;
+      const { title, content, cover, categoryId, status, isTop } = req.body;
+      // 直接从 req.user 获取用户信息
+      const userId = req.user.id;
+      const isAdmin = req.user.role === 1;
+
+      // 验证文章所有权
+      await articleService.verifyArticleOwnership(
+        id,
+        userId,
+        isAdmin ? "admin" : "user"
+      );
+
+      const updateData = {
+        title,
+        content,
+        cover,
+        category_id: categoryId,
+        is_top: isTop,
+      };
+
+      // 只有管理员可以修改status字段
+      if (status !== undefined) {
+        updateData.status = status;
+      }
+
+      const updated = await articleService.updateArticle(
+        id,
+        updateData,
+        isAdmin ? "admin" : "user"
+      );
+
+      if (!updated) {
+        return errorResponse(res, null, "文章更新失败", 400);
+      }
+
+      // 提供更友好的提示信息
+      let message = "文章更新成功";
+      if (status === 1 && isAdmin) {
+        message = "文章已审核通过";
+      } else if (status === 0 && isAdmin) {
+        message = "文章已设为待审核";
+      }
+
+      successResponse(res, null, message);
+    } catch (err) {
+      if (err.message === "无权操作此文章") {
+        return errorResponse(res, null, "权限不足", 403);
+      }
+      if (err.message === "文章不存在") {
+        return errorResponse(res, null, "文章不存在", 404);
+      }
+      next(err);
+    }
+  });
+
+  /**
+   * 删除文章
+   */
+  deleteArticle = asyncHandler(async (req, res, next) => {
+    try {
+      // 添加用户认证检查
+      if (!req.user) {
+        return errorResponse(res, null, "用户未认证", 401);
+      }
+
+      const { id } = req.params;
+      // 直接从 req.user 获取用户信息
+      const userId = req.user.id;
+      const isAdmin = req.user.role === 1;
+
+      // 验证文章所有权
+      await articleService.verifyArticleOwnership(
+        id,
+        userId,
+        isAdmin ? "admin" : "user"
+      );
+
+      const deleted = await articleService.deleteArticle(id);
+
+      if (!deleted) {
+        return errorResponse(res, null, "文章不存在", 404);
+      }
+
+      successResponse(res, null, "文章删除成功");
+    } catch (err) {
+      if (err.message === "无权操作此文章") {
+        return errorResponse(res, null, "权限不足", 403);
+      }
+      if (err.message === "文章不存在") {
+        return errorResponse(res, null, "文章不存在", 404);
+      }
+      next(err);
+    }
+  });
+
+  /**
+   * 获取文章统计信息
+   */
+  getArticleStats = asyncHandler(async (req, res, next) => {
+    try {
+      // 添加用户认证检查
+      if (!req.user) {
+        return errorResponse(res, null, "用户未认证", 401);
+      }
+
+      const { userId } = req.query;
+      // 直接从 req.user 获取用户信息
+      const currentUserId = req.user.id;
+      const isAdmin = req.user.role === 1;
+
+      // 如果普通用户查询他人统计信息，则拒绝
+      if (!isAdmin && userId && userId != currentUserId) {
+        return errorResponse(res, null, "权限不足", 403);
+      }
+
+      const targetUserId = userId || currentUserId;
+      const stats = await articleService.getArticleStats(targetUserId);
+      successResponse(res, stats, "获取成功");
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /**
+   * 为文章设置标签
+   */
+  setArticleTags = asyncHandler(async (req, res, next) => {
+    try {
+      // 添加用户认证检查
+      if (!req.user) {
+        return errorResponse(res, null, "用户未认证", 401);
+      }
+
+      const { id } = req.params;
+      const { tagIds } = req.body;
+      // 直接从 req.user 获取用户信息
+      const userId = req.user.id;
+      // 统一使用数字形式角色
+      const isAdmin = req.user.role === 1;
+
+      // 验证文章所有权
+      await articleService.verifyArticleOwnership(
+        id,
+        userId,
+        isAdmin ? "admin" : "user"
+      );
+
+      // 先清除原有的标签关联
+      await articleService.clearArticleTags(id);
+
+      // 添加新的标签关联
+      let successCount = 0;
+      const errors = [];
+
+      for (const tagId of tagIds) {
+        try {
+          const result = await articleService.addArticleTag(id, tagId);
+          if (result !== null) {
+            successCount++;
+          }
+        } catch (err) {
+          errors.push({ tagId, error: err.message });
+        }
+      }
+
+      const response = { successCount };
+      if (errors.length > 0) {
+        response.errors = errors;
+      }
+
+      successResponse(res, response, "标签设置完成");
+    } catch (err) {
+      if (err.message === "无权操作此文章") {
+        return errorResponse(res, null, "权限不足", 403);
+      }
+      if (err.message === "文章不存在") {
+        return errorResponse(res, null, "文章不存在", 404);
+      }
+      next(err);
+    }
+  });
+
+  /**
+   * 清除文章标签
+   */
+  clearArticleTags = asyncHandler(async (req, res, next) => {
+    try {
+      // 添加用户认证检查
+      if (!req.user) {
+        return errorResponse(res, null, "用户未认证", 401);
+      }
+
+      const { id } = req.params; // 从URL参数获取文章ID
+      // 直接从 req.user 获取用户信息
+      const userId = req.user.id;
+      // 统一使用数字形式角色
+      const isAdmin = req.user.role === 1;
+
+      // 验证文章所有权
+      await articleService.verifyArticleOwnership(
+        id,
+        userId,
+        isAdmin ? "admin" : "user"
+      );
+
+      // 清除标签关联
+      await articleService.clearArticleTags(id);
+
+      successResponse(res, null, "标签清除成功");
+    } catch (err) {
+      if (err.message === "无权操作此文章") {
+        return errorResponse(res, null, "权限不足", 403);
+      }
+      if (err.message === "文章不存在") {
+        return errorResponse(res, null, "文章不存在", 404);
+      }
+      next(err);
+    }
+  });
+
+  /**
+   * 获取用户文章列表
+   */
+  getUserArticles = asyncHandler(async (req, res, next) => {
+    try {
+      const { userId } = req.params;
+      const { page = 1, pageSize = 10 } = req.query;
+      
+      // 获取当前用户信息（可能为null）
+      const currentUserId = req.user ? req.user.id : null;
+      const isAdmin = req.user && req.user.role === 1;
+      const currentUserRole = isAdmin ? "admin" : "user";
+
+      const result = await articleService.getUserArticles(
+        parseInt(userId),
+        parseInt(page),
+        parseInt(pageSize),
+        currentUserRole,
+        currentUserId
+      );
+
+      successResponse(
+        res,
+        {
+          total: result.total,
+          page: parseInt(page),
+          pageSize: parseInt(pageSize),
+          articles: result.articles,
+        },
+        "获取成功"
+      );
+    } catch (err) {
       next(err);
     }
   });
@@ -34,24 +309,26 @@ class ArticleController {
   getArticles = asyncHandler(async (req, res, next) => {
     try {
       const { page = 1, pageSize = 10, categoryId, tagId, status } = req.query;
-      // 判断是否为管理员
+
+      // 统一使用字符串形式判断角色
       const isAdmin = req.user && req.user.role === 1;
+      const userRole = isAdmin ? "admin" : "user";
 
       // 处理过滤条件
       const filters = {};
       if (categoryId) filters.category_id = parseInt(categoryId);
       if (tagId) filters.tag_id = parseInt(tagId);
-      if (status !== undefined) filters.status = parseInt(status);
 
-      // 如果不是管理员，只显示已发布的文章
-      if (!isAdmin) {
-        filters.status = 1;
+      // 管理员可以使用status参数进行过滤
+      if (isAdmin && status !== undefined) {
+        filters.status = parseInt(status);
       }
 
       const result = await articleService.getArticles(
         parseInt(page),
         parseInt(pageSize),
-        filters
+        filters,
+        userRole
       );
 
       successResponse(
@@ -75,8 +352,10 @@ class ArticleController {
   getArticle = asyncHandler(async (req, res, next) => {
     try {
       const { id } = req.params;
+      const isAdmin = req.user && req.user.role === 1;
+      const userRole = isAdmin ? "admin" : "user";
 
-      const article = await articleService.getArticleById(id);
+      const article = await articleService.getArticleById(id, userRole);
 
       if (!article) {
         return errorResponse(res, null, "文章不存在", 404);
@@ -89,130 +368,13 @@ class ArticleController {
   });
 
   /**
-   * 更新文章
-   */
-  updateArticle = asyncHandler(async (req, res, next) => {
-    try {
-      const { id } = req.params;
-      const { title, content, cover, categoryId, status, isTop } = req.body;
-      const userId = req.user.id;
-      const userRole = req.user.role;
-
-      // 验证文章所有权
-      await articleService.verifyArticleOwnership(id, userId, userRole);
-
-      const updateData = {
-        title,
-        content,
-        cover,
-        category_id: categoryId,
-        is_top: isTop,
-      };
-
-      // 只有管理员可以修改status字段
-      if (status !== undefined) {
-        updateData.status = status;
-      }
-
-      const updated = await articleService.updateArticle(
-        id,
-        updateData,
-        userRole === 1 ? "admin" : "user"
-      );
-
-      if (!updated) {
-        return errorResponse(res, null, "文章更新失败", 400);
-      }
-
-      // 提供更友好的提示信息
-      let message = "文章更新成功";
-      if (status === 1 && userRole === 1) {
-        message = "文章已审核通过";
-      } else if (status === 0 && userRole === 1) {
-        message = "文章已设为待审核";
-      }
-
-      successResponse(res, null, message);
-    } catch (err) {
-      if (err.message === "无权操作此文章") {
-        return errorResponse(res, null, "权限不足", 403);
-      }
-      if (err.message === "文章不存在") {
-        return errorResponse(res, null, "文章不存在", 404);
-      }
-      next(err);
-    }
-  });
-  /**
-   * 删除文章
-   */
-  deleteArticle = asyncHandler(async (req, res, next) => {
-    try {
-      const { id } = req.params;
-      const userId = req.user.id;
-      const userRole = req.user.role;
-
-      // 验证文章所有权
-      await articleService.verifyArticleOwnership(id, userId, userRole);
-
-      const deleted = await articleService.deleteArticle(id);
-
-      if (!deleted) {
-        return errorResponse(res, null, "文章不存在", 404);
-      }
-
-      successResponse(res, null, "文章删除成功");
-    } catch (err) {
-      if (err.message === "无权操作此文章") {
-        return errorResponse(res, null, "权限不足", 403);
-      }
-      if (err.message === "文章不存在") {
-        return errorResponse(res, null, "文章不存在", 404);
-      }
-      next(err);
-    }
-  });
-
-  /**
-   * 置顶文章
-   */
-  toggleTopStatus = asyncHandler(async (req, res, next) => {
-    try {
-      const { id } = req.params;
-      const { isTop } = req.body;
-
-      const updated = await articleService.updateArticle(id, {
-        is_top: isTop,
-      });
-
-      if (!updated) {
-        return errorResponse(res, null, "文章不存在", 404);
-      }
-
-      successResponse(res, null, isTop ? "文章已置顶" : "文章已取消置顶");
-    } catch (err) {
-      next(err);
-    }
-  });
-
-  /**
-   * 获取文章统计信息
-   */
-  getArticleStats = asyncHandler(async (req, res, next) => {
-    try {
-      const stats = await articleService.getArticleStats();
-      successResponse(res, stats, "获取成功");
-    } catch (err) {
-      next(err);
-    }
-  });
-
-  /**
    * 搜索文章
    */
   searchArticles = asyncHandler(async (req, res, next) => {
     try {
       let { keyword, page = 1, pageSize = 10 } = req.query;
+      const isAdmin = req.user && req.user.role === 1;
+      const userRole = isAdmin ? "admin" : "user";
 
       if (!keyword) {
         return errorResponse(res, null, "搜索关键词不能为空", 400);
@@ -234,7 +396,8 @@ class ArticleController {
       const result = await articleService.searchArticles(
         keyword,
         parseInt(page),
-        parseInt(pageSize)
+        parseInt(pageSize),
+        userRole
       );
 
       successResponse(
@@ -258,7 +421,13 @@ class ArticleController {
    */
   getPopularArticles = asyncHandler(async (req, res, next) => {
     try {
-      const popularArticles = await articleService.getPopularArticles(10);
+      const isAdmin = req.user && req.user.role === 1;
+      const userRole = isAdmin ? "admin" : "user";
+
+      const popularArticles = await articleService.getPopularArticles(
+        10,
+        userRole
+      );
       successResponse(res, popularArticles, "获取成功");
     } catch (err) {
       next(err);
@@ -290,11 +459,14 @@ class ArticleController {
     try {
       const { categoryId } = req.params;
       const { page = 1, pageSize = 10 } = req.query;
+      const isAdmin = req.user && req.user.role === 1;
+      const userRole = isAdmin ? "admin" : "user";
 
       const result = await articleService.getArticlesByCategory(
         categoryId,
         parseInt(page),
-        parseInt(pageSize)
+        parseInt(pageSize),
+        userRole
       );
 
       successResponse(
@@ -313,97 +485,23 @@ class ArticleController {
   });
 
   /**
-   * 获取用户文章列表
+   * 置顶文章
    */
-  getUserArticles = asyncHandler(async (req, res, next) => {
-    try {
-      const { userId } = req.params;
-      const { page = 1, pageSize = 10 } = req.query;
-
-      const result = await articleService.getUserArticles(
-        userId,
-        parseInt(page),
-        parseInt(pageSize)
-      );
-
-      successResponse(
-        res,
-        {
-          total: result.total,
-          page: parseInt(page),
-          pageSize: parseInt(pageSize),
-          articles: result.articles,
-        },
-        "获取成功"
-      );
-    } catch (err) {
-      next(err);
-    }
-  });
-
-  /**
-   * 为文章设置标签
-   */
-  setArticleTags = asyncHandler(async (req, res, next) => {
+  toggleTopStatus = asyncHandler(async (req, res, next) => {
     try {
       const { id } = req.params;
-      const { tagIds } = req.body;
-      const userId = req.user.id;
-      const userRole = req.user.role;
+      const { isTop } = req.body;
 
-      // 验证文章所有权
-      await articleService.verifyArticleOwnership(id, userId, userRole);
+      const updated = await articleService.updateArticle(id, {
+        is_top: isTop,
+      });
 
-      // 先清除原有的标签关联
-      await articleService.clearArticleTags(id);
-
-      // 添加新的标签关联
-      for (const tagId of tagIds) {
-        try {
-          await articleService.addArticleTag(id, tagId);
-        } catch (err) {
-          // 忽略重复关联的错误
-          if (!err.message.includes("Duplicate entry")) {
-            throw err;
-          }
-        }
-      }
-
-      successResponse(res, null, "标签设置成功");
-    } catch (err) {
-      if (err.message === "无权操作此文章") {
-        return errorResponse(res, null, "权限不足", 403);
-      }
-      if (err.message === "文章不存在") {
+      if (!updated) {
         return errorResponse(res, null, "文章不存在", 404);
       }
-      next(err);
-    }
-  });
 
-  /**
-   * 清除文章标签
-   */
-  clearArticleTags = asyncHandler(async (req, res, next) => {
-    try {
-      const { id } = req.params; // 从URL参数获取文章ID
-      const userId = req.user.id;
-      const userRole = req.user.role;
-
-      // 验证文章所有权
-      await articleService.verifyArticleOwnership(id, userId, userRole);
-
-      // 清除标签关联
-      await articleService.clearArticleTags(id);
-
-      successResponse(res, null, "标签清除成功");
+      successResponse(res, null, isTop ? "文章已置顶" : "文章已取消置顶");
     } catch (err) {
-      if (err.message === "无权操作此文章") {
-        return errorResponse(res, null, "权限不足", 403);
-      }
-      if (err.message === "文章不存在") {
-        return errorResponse(res, null, "文章不存在", 404);
-      }
       next(err);
     }
   });

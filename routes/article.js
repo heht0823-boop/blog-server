@@ -14,7 +14,7 @@ const {
   articleTagValidator,
 } = require("../middleware/articleValidator");
 const { paginationValidator } = require("../middleware/userValidator");
-const { authMiddleware } = require("../middleware/auth");
+const { authMiddleware, strictAuthMiddleware } = require("../middleware/auth");
 const { adminMiddleware } = require("../middleware/permission");
 
 // ===== 公开接口 =====
@@ -22,6 +22,7 @@ const { adminMiddleware } = require("../middleware/permission");
 // 获取文章列表
 router.get(
   "/",
+  authMiddleware,
   validate([...paginationValidator, ...articleQueryValidator]),
   ArticleController.getArticles
 );
@@ -29,16 +30,18 @@ router.get(
 // 搜索文章
 router.get(
   "/search",
+  authMiddleware,
   validate([...paginationValidator, ...articleSearchValidator]),
   ArticleController.searchArticles
 );
 
 // 获取热门文章
-router.get("/popular", ArticleController.getPopularArticles);
+router.get("/popular", authMiddleware, ArticleController.getPopularArticles);
 
 // 获取分类下文章
 router.get(
   "/category/:categoryId",
+  authMiddleware,
   validate([
     param("categoryId").isInt({ min: 1 }).withMessage("分类 ID 必须是正整数"),
     ...paginationValidator,
@@ -49,6 +52,7 @@ router.get(
 // 获取用户文章列表
 router.get(
   "/user/:userId",
+  authMiddleware,
   validate([
     param("userId").isInt({ min: 1 }).withMessage("用户 ID 必须是正整数"),
     ...paginationValidator,
@@ -61,7 +65,7 @@ router.get(
 // 创建文章
 router.post(
   "/",
-  authMiddleware,
+  strictAuthMiddleware, // 使用严格认证
   validate(articleCreateValidator),
   ArticleController.createArticle
 );
@@ -71,7 +75,7 @@ router.post(
 // 获取文章统计
 router.get(
   "/stats/all",
-  authMiddleware,
+  strictAuthMiddleware, // 使用严格认证
   adminMiddleware,
   ArticleController.getArticleStats
 );
@@ -87,7 +91,7 @@ router.put(
 // 为文章设置标签
 router.put(
   "/:id/tags",
-  authMiddleware,
+  strictAuthMiddleware, // 使用严格认证
   validate([...articleIdValidator, ...articleTagValidator]),
   ArticleController.setArticleTags
 );
@@ -95,7 +99,7 @@ router.put(
 // 完全清除文章标签
 router.delete(
   "/:id/tags",
-  authMiddleware,
+  strictAuthMiddleware, // 使用严格认证
   validate(articleIdValidator),
   ArticleController.clearArticleTags
 );
@@ -103,7 +107,7 @@ router.delete(
 // 置顶/取消置顶文章
 router.put(
   "/:id/top",
-  authMiddleware,
+  strictAuthMiddleware, // 使用严格认证
   adminMiddleware,
   validate(articleIdValidator),
   ArticleController.toggleTopStatus
@@ -116,7 +120,7 @@ router.get("/:id", validate(articleIdValidator), ArticleController.getArticle);
 // 更新文章
 router.put(
   "/:id",
-  authMiddleware,
+  strictAuthMiddleware, // 使用严格认证
   validate([...articleIdValidator, ...articleUpdateValidator]),
   ArticleController.updateArticle
 );
@@ -124,7 +128,7 @@ router.put(
 // 删除文章
 router.delete(
   "/:id",
-  authMiddleware,
+  strictAuthMiddleware, // 使用严格认证
   validate(articleIdValidator),
   ArticleController.deleteArticle
 );

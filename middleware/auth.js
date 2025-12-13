@@ -9,6 +9,40 @@ const authMiddleware = (req, res, next) => {
     const authHeader = req.headers.authorization;
 
     if (!authHeader) {
+      // 对于可选认证的接口，允许继续处理
+      req.user = null;
+      return next();
+    }
+
+    const parts = authHeader.split(" ");
+    if (parts.length !== 2 || parts[0] !== "Bearer") {
+      req.user = null;
+      return next();
+    }
+
+    const token = parts[1];
+    const decoded = jwtUtil.verifyAccessToken(token);
+
+    req.user = {
+      id: decoded.id,
+      role: decoded.role,
+      username: decoded.username,
+    };
+
+    next();
+  } catch (err) {
+    // 即使令牌无效，也允许继续处理（对于可选认证的接口）
+    req.user = null;
+    next();
+  }
+};
+
+// 创建严格的认证中间件，用于必须认证的接口
+const strictAuthMiddleware = (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) {
       throw new AuthenticationError("缺少授权令牌");
     }
 
@@ -59,5 +93,6 @@ const refreshTokenMiddleware = (req, res, next) => {
 
 module.exports = {
   authMiddleware,
+  strictAuthMiddleware,
   refreshTokenMiddleware,
 };
