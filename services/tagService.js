@@ -2,12 +2,22 @@ const { pool } = require("../config/db");
 
 class TagService {
   /**
-   * 创建标签（支持单个或批量创建）
+   * 创建标签（支持单个或批量创建，支持JSON字符串）
    */
   async createTag(tagsData) {
+    // 如果是字符串，尝试解析为JSON
+    let parsedData = tagsData;
+    if (typeof tagsData === "string") {
+      try {
+        parsedData = JSON.parse(tagsData);
+      } catch (error) {
+        throw new Error("无效的JSON字符串");
+      }
+    }
+
     // 判断是单个对象还是数组
-    const isBatch = Array.isArray(tagsData);
-    const tags = isBatch ? tagsData : [tagsData];
+    const isBatch = Array.isArray(parsedData);
+    const tags = isBatch ? parsedData : [parsedData];
 
     if (tags.length === 0) {
       throw new Error("标签数据不能为空");

@@ -2,12 +2,22 @@ const { pool } = require("../config/db");
 
 class CategoryService {
   /**
-   * 创建分类（支持单个或批量创建）
+   * 创建分类（支持单个或批量创建，支持JSON字符串）
    */
   async createCategory(categoriesData) {
+    // 如果是字符串，尝试解析为JSON
+    let parsedData = categoriesData;
+    if (typeof categoriesData === "string") {
+      try {
+        parsedData = JSON.parse(categoriesData);
+      } catch (error) {
+        throw new Error("无效的JSON字符串");
+      }
+    }
+
     // 判断是单个对象还是数组
-    const isBatch = Array.isArray(categoriesData);
-    const categories = isBatch ? categoriesData : [categoriesData];
+    const isBatch = Array.isArray(parsedData);
+    const categories = isBatch ? parsedData : [parsedData];
 
     if (categories.length === 0) {
       throw new Error("分类数据不能为空");
@@ -28,7 +38,6 @@ class CategoryService {
       return result.insertId;
     }
   }
-
   /**
    * 获取分类列表（分页）
    */
