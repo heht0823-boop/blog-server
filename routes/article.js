@@ -71,12 +71,11 @@ router.post(
 );
 
 // ===== 管理员接口 =====
-
 // 获取文章统计
 router.get(
   "/stats/all",
   strictAuthMiddleware, // 使用严格认证
-  adminMiddleware,
+  adminMiddleware, // 确保只有管理员可以访问
   ArticleController.getArticleStats
 );
 

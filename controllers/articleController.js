@@ -144,7 +144,7 @@ class ArticleController {
   });
 
   /**
-   * 获取文章统计信息
+   * 获取文章统计信息（增强版）
    */
   getArticleStats = asyncHandler(async (req, res, next) => {
     try {
@@ -153,24 +153,21 @@ class ArticleController {
         return errorResponse(res, null, "用户未认证", 401);
       }
 
-      const { userId } = req.query;
-      // 直接从 req.user 获取用户信息
-      const currentUserId = req.user.id;
+      // 只有管理员可以访问此接口
       const isAdmin = req.user.role === 1;
-
-      // 如果普通用户查询他人统计信息，则拒绝
-      if (!isAdmin && userId && userId != currentUserId) {
-        return errorResponse(res, null, "权限不足", 403);
+      if (!isAdmin) {
+        return errorResponse(res, null, "权限不足，仅管理员可访问", 403);
       }
 
-      const targetUserId = userId || currentUserId;
-      const stats = await articleService.getArticleStats(targetUserId);
+      const { userId } = req.query;
+      const stats = await articleService.getArticleStats(
+        userId ? parseInt(userId) : null
+      );
       successResponse(res, stats, "获取成功");
     } catch (err) {
       next(err);
     }
   });
-
   /**
    * 为文章设置标签
    */
@@ -275,7 +272,7 @@ class ArticleController {
     try {
       const { userId } = req.params;
       const { page = 1, pageSize = 10 } = req.query;
-      
+
       // 获取当前用户信息（可能为null）
       const currentUserId = req.user ? req.user.id : null;
       const isAdmin = req.user && req.user.role === 1;

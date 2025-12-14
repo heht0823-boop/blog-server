@@ -181,7 +181,10 @@ class ArticleService {
     const values = [];
 
     // 如果提供了 category_id，则验证该分类是否存在
-    if (updateData.category_id !== undefined && updateData.category_id !== null) {
+    if (
+      updateData.category_id !== undefined &&
+      updateData.category_id !== null
+    ) {
       const categoryIdNum = parseInt(updateData.category_id, 10);
       if (isNaN(categoryIdNum)) {
         throw new Error("分类ID格式不正确");
@@ -195,7 +198,7 @@ class ArticleService {
       if (categories.length === 0) {
         throw new Error("指定的分类不存在");
       }
-      
+
       // 更新数据中的 category_id 为验证后的数字
       updateData.category_id = categoryIdNum;
     }
@@ -279,21 +282,82 @@ class ArticleService {
     }
   }
   /**
-   * 获取文章统计
+   * 获取文章统计（增强版）
    */
   async getArticleStats(userId = null) {
     try {
-      let query = "SELECT COUNT(*) as total FROM articles WHERE 1=1";
       const params = [];
+      let whereClause = "";
+      let whereClauseForTrend = ""; // 单独为趋势统计准备的where子句
 
       if (userId) {
-        query += " AND user_id = ?";
+        whereClause = "WHERE a.user_id = ?";
+        whereClauseForTrend = "AND a.user_id = ?";
         params.push(userId);
       }
 
-      const [result] = await pool.query(query, params);
+      // 获取总文章数
+      const [totalResult] = await pool.query(
+        `SELECT COUNT(*) as total FROM articles a ${whereClause}`,
+        params
+      );
+      const total = totalResult[0].total;
 
-      return result[0];
+      // 获取分类统计
+      const categoryParams = userId ? [userId] : [];
+      const [categoryStats] = await pool.query(
+        `SELECT c.id as category_id, c.name, COUNT(a.id) as count 
+       FROM categories c 
+       LEFT JOIN articles a ON c.id = a.category_id ${
+         userId ? "AND a.user_id = ?" : ""
+       }
+       GROUP BY c.id, c.name 
+       HAVING count > 0`,
+        categoryParams
+      );
+
+      // 获取状态统计
+      const [statusStats] = await pool.query(
+        `SELECT a.status, 
+              CASE WHEN a.status = 1 THEN '已发布' ELSE '草稿' END as name, 
+              COUNT(*) as count 
+       FROM articles a ${whereClause} 
+       GROUP BY a.status`,
+        params
+      );
+
+      // 获取时间趋势统计（近7天）
+      const trendParams = userId ? [userId, userId] : [];
+      const [trendStats] = await pool.query(
+        `SELECT DATE(a.create_time) as date, COUNT(*) as count 
+       FROM articles a 
+       WHERE a.create_time >= DATE_SUB(NOW(), INTERVAL 7 DAY) 
+       ${userId ? "AND a.user_id = ?" : ""}
+       GROUP BY DATE(a.create_time) 
+       ORDER BY date`,
+        trendParams
+      );
+
+      // 获取置顶统计
+      const [topStatsResult] = await pool.query(
+        `SELECT 
+         SUM(CASE WHEN a.is_top = 1 THEN 1 ELSE 0 END) as top,
+         SUM(CASE WHEN a.is_top = 0 OR a.is_top IS NULL THEN 1 ELSE 0 END) as not_top
+       FROM articles a ${whereClause}`,
+        params
+      );
+      const topStats = topStatsResult[0];
+
+      return {
+        total,
+        category_stats: categoryStats,
+        status_stats: statusStats,
+        trend_stats: trendStats,
+        top_stats: {
+          top: parseInt(topStats.top) || 0,
+          not_top: parseInt(topStats.not_top) || 0,
+        },
+      };
     } catch (err) {
       throw err;
     }
