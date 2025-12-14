@@ -1,3 +1,4 @@
+// routes/category.js
 const express = require("express");
 const router = express.Router();
 
@@ -25,7 +26,11 @@ router.get(
 router.get("/all", CategoryController.getAllCategories);
 
 // 获取单个分类
-router.get("/:id", validate(categoryIdValidator), CategoryController.getCategory);
+router.get(
+  "/:id",
+  validate(categoryIdValidator),
+  CategoryController.getCategory
+);
 
 // ===== 需要认证的接口 =====
 
@@ -34,7 +39,7 @@ router.post(
   "/",
   authMiddleware,
   adminMiddleware,
-  validate(categoryCreateValidator),
+  categoryCreateValidator, // 直接使用函数而不是 validate 包装
   CategoryController.createCategory
 );
 

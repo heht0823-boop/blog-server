@@ -3,8 +3,8 @@ const { v4: uuidv4 } = require("uuid");
 // ===== 自定义错误类 =====
 
 class AppError extends Error {
-  constructor(message, statusCode = 500, code = null) {
-    super(message);
+  constructor(msg, statusCode = 500, code = null) {
+    super(msg);
     this.statusCode = statusCode;
     this.code = code;
     this.timestamp = new Date().toISOString();
@@ -12,27 +12,27 @@ class AppError extends Error {
 }
 
 class ValidationError extends AppError {
-  constructor(message, details = null) {
-    super(message, 400, "VALIDATION_ERROR");
+  constructor(msg, details = null) {
+    super(msg, 400, "VALIDATION_ERROR");
     this.details = details;
   }
 }
 
 class AuthenticationError extends AppError {
-  constructor(message = "未认证") {
-    super(message, 401, "AUTHENTICATION_ERROR");
+  constructor(msg = "未认证") {
+    super(msg, 401, "AUTHENTICATION_ERROR");
   }
 }
 
 class AuthorizationError extends AppError {
-  constructor(message = "权限不足") {
-    super(message, 403, "AUTHORIZATION_ERROR");
+  constructor(msg = "权限不足") {
+    super(msg, 403, "AUTHORIZATION_ERROR");
   }
 }
 
 class NotFoundError extends AppError {
-  constructor(message = "资源不存在") {
-    super(message, 404, "NOT_FOUND");
+  constructor(msg = "资源不存在") {
+    super(msg, 404, "NOT_FOUND");
   }
 }
 
@@ -44,12 +44,12 @@ class NotFoundError extends AppError {
 const successResponse = (
   res,
   data = null,
-  message = "请求成功",
+  msg = "请求成功",
   statusCode = 200
 ) => {
   return res.status(statusCode).json({
     code: statusCode,
-    message,
+    msg,
     data,
     timestamp: new Date().toISOString(),
     traceId: res.req?.traceId,
@@ -62,12 +62,12 @@ const successResponse = (
 const errorResponse = (
   res,
   error = null,
-  message = "请求失败",
+  msg = "请求失败",
   statusCode = 500
 ) => {
   return res.status(statusCode).json({
     code: statusCode,
-    message,
+    msg,
     data: null,
     timestamp: new Date().toISOString(),
     traceId: res.req?.traceId,
@@ -90,22 +90,22 @@ const addTraceId = (req, res, next) => {
 const errorHandler = (err, req, res, next) => {
   // 默认错误信息
   let statusCode = err.statusCode || 500;
-  let message = err.message || "服务器内部错误"; // 将 msg 改为 message
+  let msg = err.message || "服务器内部错误";
   let code = err.code || statusCode;
 
   // 特定错误处理
   if (err.name === "ValidationError") {
     statusCode = 400;
     code = "VALIDATION_ERROR";
-    message = err.message || "参数验证失败"; // 将 msg 改为 message
+    msg = err.message || "参数验证失败";
   } else if (err.name === "SyntaxError" && "body" in err) {
     statusCode = 400;
     code = "JSON_PARSE_ERROR";
-    message = "JSON 格式错误"; // 将 msg 改为 message
+    msg = "JSON 格式错误";
   } else if (err.code === "ENOTFOUND") {
     statusCode = 503;
     code = "SERVICE_UNAVAILABLE";
-    message = "服务暂时不可用"; // 将 msg 改为 message
+    msg = "服务暂时不可用";
   }
 
   // 只在开发环境打印错误堆栈
@@ -113,10 +113,9 @@ const errorHandler = (err, req, res, next) => {
     console.error(`[错误] TraceId: ${req.traceId}\n`, err);
   }
 
-  // 响应 - 统一使用 message 字段
   res.status(statusCode).json({
     code,
-    message, // 将 msg 改为 message
+    msg,
     data: null,
     timestamp: new Date().toISOString(),
     traceId: req.traceId,

@@ -1,3 +1,4 @@
+// routes/tag.js
 const express = require("express");
 const router = express.Router();
 
@@ -15,11 +16,7 @@ const { adminMiddleware } = require("../middleware/permission");
 // ===== 公开接口 =====
 
 // 获取标签列表
-router.get(
-  "/",
-  validate(tagQueryValidator),
-  TagController.getTags
-);
+router.get("/", validate(tagQueryValidator), TagController.getTags);
 
 // 获取所有标签
 router.get("/all", TagController.getAllTags);
@@ -34,7 +31,7 @@ router.post(
   "/",
   authMiddleware,
   adminMiddleware,
-  validate(tagCreateValidator),
+  tagCreateValidator, // 使用更新后的验证器
   TagController.createTag
 );
 

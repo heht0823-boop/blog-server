@@ -7,23 +7,36 @@ const tagIdValidator = [
   param("id").isInt({ min: 1 }).withMessage("标签 ID 必须是正整数"),
 ];
 
-// ===== 标签创建验证 =====
-const tagCreateValidator = [
-  body("name")
-    .trim()
-    .notEmpty()
-    .withMessage("标签名称不能为空")
-    .isLength({ min: 1, max: 20 })
-    .withMessage("标签名称长度 1-20 位")
-    .custom(async (value) => {
-      // 检查标签名称是否已存在
-      const existingTag = await tagService.getTagByName(value);
-      if (existingTag) {
-        throw new Error("标签名称已存在");
+// ===== 标签创建验证（支持批量）=====
+const tagCreateValidator = (req, res, next) => {
+  const data = req.body;
+
+  // 如果是数组（批量创建）
+  if (Array.isArray(data)) {
+    for (const [index, tag] of data.entries()) {
+      if (!tag.name || typeof tag.name !== "string" || tag.name.trim() === "") {
+        return next(new Error(`第${index + 1}个标签名称不能为空`));
       }
-      return true;
-    }),
-];
+      if (tag.name.trim().length > 20) {
+        return next(new Error(`第${index + 1}个标签名称长度不能超过20位`));
+      }
+    }
+  } else {
+    // 单个创建
+    if (
+      !data.name ||
+      typeof data.name !== "string" ||
+      data.name.trim() === ""
+    ) {
+      return next(new Error("标签名称不能为空"));
+    }
+    if (data.name.trim().length > 20) {
+      return next(new Error("标签名称长度不能超过20位"));
+    }
+  }
+
+  next();
+};
 
 // ===== 标签更新验证 =====
 const tagUpdateValidator = [
