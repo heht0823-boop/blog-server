@@ -2,17 +2,31 @@ const { pool } = require("../config/db");
 
 class TagService {
   /**
-   * 创建标签
+   * 创建标签（支持单个或批量创建）
    */
-  async createTag(tagData) {
-    const { name } = tagData;
-    
-    const [result] = await pool.query(
-      "INSERT INTO tags (name) VALUES (?)",
-      [name]
-    );
-    
-    return result.insertId;
+  async createTag(tagsData) {
+    // 判断是单个对象还是数组
+    const isBatch = Array.isArray(tagsData);
+    const tags = isBatch ? tagsData : [tagsData];
+
+    if (tags.length === 0) {
+      throw new Error("标签数据不能为空");
+    }
+
+    // 构建占位符和值
+    const placeholders = tags.map(() => "(?)").join(", ");
+    const values = tags.map((tag) => tag.name);
+
+    const query = `INSERT INTO tags (name) VALUES ${placeholders}`;
+
+    const [result] = await pool.query(query, values);
+
+    // 如果是单个插入，返回 insertId；如果是批量插入，返回 affectedRows
+    if (isBatch) {
+      return result.affectedRows;
+    } else {
+      return result.insertId;
+    }
   }
 
   /**
@@ -20,15 +34,17 @@ class TagService {
    */
   async getTags(page = 1, pageSize = 10) {
     const offset = (page - 1) * pageSize;
-    
+
     const [tags] = await pool.query(
       "SELECT * FROM tags ORDER BY create_time DESC LIMIT ? OFFSET ?",
       [pageSize, offset]
     );
-    
-    const [countResult] = await pool.query("SELECT COUNT(*) as total FROM tags");
+
+    const [countResult] = await pool.query(
+      "SELECT COUNT(*) as total FROM tags"
+    );
     const total = countResult[0].total;
-    
+
     return { total, tags };
   }
 
@@ -36,11 +52,8 @@ class TagService {
    * 获取单个标签详情
    */
   async getTagById(tagId) {
-    const [tags] = await pool.query(
-      "SELECT * FROM tags WHERE id = ?",
-      [tagId]
-    );
-    
+    const [tags] = await pool.query("SELECT * FROM tags WHERE id = ?", [tagId]);
+
     return tags[0] || null;
   }
 
@@ -48,11 +61,10 @@ class TagService {
    * 根据名称获取标签
    */
   async getTagByName(name) {
-    const [tags] = await pool.query(
-      "SELECT * FROM tags WHERE name = ?",
-      [name]
-    );
-    
+    const [tags] = await pool.query("SELECT * FROM tags WHERE name = ?", [
+      name,
+    ]);
+
     return tags[0] || null;
   }
 
@@ -63,25 +75,25 @@ class TagService {
     const allowedFields = ["name"];
     const fields = [];
     const values = [];
-    
+
     Object.entries(updateData).forEach(([key, value]) => {
       if (allowedFields.includes(key) && value !== undefined) {
         fields.push(`${key} = ?`);
         values.push(value);
       }
     });
-    
+
     if (fields.length === 0) {
       return 0;
     }
-    
+
     values.push(tagId);
-    
+
     const [result] = await pool.query(
       `UPDATE tags SET ${fields.join(", ")}, update_time = NOW() WHERE id = ?`,
       values
     );
-    
+
     return result.affectedRows;
   }
 
@@ -94,15 +106,15 @@ class TagService {
       "SELECT COUNT(*) as count FROM article_tags WHERE tag_id = ?",
       [tagId]
     );
-    
+
     if (articleCount[0].count > 0) {
       throw new Error("该标签已被文章使用，无法删除");
     }
-    
+
     const [result] = await pool.query("DELETE FROM tags WHERE id = ?", [tagId]);
     return result.affectedRows > 0;
   }
-  
+
   /**
    * 获取所有标签（不分页）
    */
