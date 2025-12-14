@@ -2,7 +2,7 @@ const { pool } = require("../config/db");
 
 class TagService {
   /**
-   * 创建标签（支持单个或批量创建，支持JSON字符串）
+   * 创建标签（支持单个或批量创建，支持JSON字符串，自动去重）
    */
   async createTag(tagsData) {
     // 如果是字符串，尝试解析为JSON
@@ -23,22 +23,55 @@ class TagService {
       throw new Error("标签数据不能为空");
     }
 
+    // 验证数据并去重
+    const validTags = [];
+    const processedNames = new Set();
+
+    for (const tag of tags) {
+      // 验证必填字段
+      if (!tag.name || tag.name.trim() === "") {
+        throw new Error(`标签名称不能为空`);
+      }
+
+      const tagName = tag.name.trim();
+
+      // 检查是否已处理过同名标签（去重）
+      if (processedNames.has(tagName)) {
+        continue; // 跳过重复项
+      }
+
+      // 检查数据库中是否已存在同名标签
+      const existingTag = await this.getTagByName(tagName);
+      if (existingTag) {
+        continue; // 跳过已存在的标签
+      }
+
+      validTags.push({ name: tagName });
+      processedNames.add(tagName);
+    }
+
+    if (validTags.length === 0) {
+      return isBatch ? 0 : null;
+    }
+
     // 构建占位符和值
-    const placeholders = tags.map(() => "(?)").join(", ");
-    const values = tags.map((tag) => tag.name);
+    const placeholders = validTags.map(() => "(?)").join(", ");
+    const values = validTags.map((tag) => tag.name);
 
     const query = `INSERT INTO tags (name) VALUES ${placeholders}`;
 
     const [result] = await pool.query(query, values);
 
-    // 如果是单个插入，返回 insertId；如果是批量插入，返回 affectedRows
+    // 如果是单个插入，返回 insertId；如果是批量插入，返回受影响行数信息
     if (isBatch) {
-      return result.affectedRows;
+      return {
+        affectedRows: result.affectedRows,
+        insertedCount: validTags.length,
+      };
     } else {
       return result.insertId;
     }
   }
-
   /**
    * 获取标签列表（分页）
    */

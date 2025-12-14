@@ -2,7 +2,7 @@ const { pool } = require("../config/db");
 
 class CategoryService {
   /**
-   * 创建分类（支持单个或批量创建，支持JSON字符串）
+   * 创建分类（支持单个或批量创建，支持JSON字符串，自动去重）
    */
   async createCategory(categoriesData) {
     // 如果是字符串，尝试解析为JSON
@@ -23,9 +23,43 @@ class CategoryService {
       throw new Error("分类数据不能为空");
     }
 
+    // 验证数据并去重
+    const validCategories = [];
+    const processedNames = new Set();
+
+    for (const category of categories) {
+      // 验证必填字段
+      if (!category.name || category.name.trim() === "") {
+        throw new Error(`分类名称不能为空`);
+      }
+
+      const categoryName = category.name.trim();
+
+      // 检查是否已处理过同名分类（去重）
+      if (processedNames.has(categoryName)) {
+        continue; // 跳过重复项
+      }
+
+      // 检查数据库中是否已存在同名分类
+      const existingCategory = await this.getCategoryByName(categoryName);
+      if (existingCategory) {
+        continue; // 跳过已存在的分类
+      }
+
+      validCategories.push({
+        name: categoryName,
+        sort: category.sort || 0,
+      });
+      processedNames.add(categoryName);
+    }
+
+    if (validCategories.length === 0) {
+      return isBatch ? 0 : null;
+    }
+
     // 构建占位符和值
-    const placeholders = categories.map(() => "(?, ?)").join(", ");
-    const values = categories.flatMap((cat) => [cat.name, cat.sort || 0]);
+    const placeholders = validCategories.map(() => "(?, ?)").join(", ");
+    const values = validCategories.flatMap((cat) => [cat.name, cat.sort]);
 
     const query = `INSERT INTO categories (name, sort) VALUES ${placeholders}`;
 
@@ -33,7 +67,10 @@ class CategoryService {
 
     // 如果是单个插入，返回 insertId；如果是批量插入，返回 affectedRows
     if (isBatch) {
-      return result.affectedRows;
+      return {
+        affectedRows: result.affectedRows,
+        insertedCount: validCategories.length,
+      };
     } else {
       return result.insertId;
     }
