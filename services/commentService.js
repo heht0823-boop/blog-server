@@ -68,7 +68,7 @@ class CommentService {
 
   /**
    * 获取文章的所有评论（分页）
-   * @param {number} articleId - 文章ID
+   * @param {number} articleId - 文ID
    * @param {number} page - 页码
    * @param {number} pageSize - 每页条数
    * @returns {Object} 包含评论列表和分页信息的对象
@@ -100,6 +100,7 @@ class CommentService {
     if (total === 0) {
       return {
         list: [],
+        tree: [],
         pagination: {
           page: pageNum,
           pageSize: size,
@@ -109,21 +110,43 @@ class CommentService {
       };
     }
 
-    // 获取评论列表（使用字符串拼接方式避免参数绑定问题）
+    // 获取所有评论（按创建时间升序排列，确保父评论在子评论之前）
     const query = `SELECT c.*, u.username, u.nickname, u.avatar,
-                        p.content as parent_content, pu.username as parent_username
-                 FROM comments c
-                 JOIN users u ON c.user_id = u.id
-                 LEFT JOIN comments p ON c.parent_id = p.id
-                 LEFT JOIN users pu ON p.user_id = pu.id
-                 WHERE c.article_id = ?
-                 ORDER BY c.create_time DESC
-                 LIMIT ${size} OFFSET ${offset}`;
+                      p.content as parent_content, pu.username as parent_username
+               FROM comments c
+               JOIN users u ON c.user_id = u.id
+               LEFT JOIN comments p ON c.parent_id = p.id
+               LEFT JOIN users pu ON p.user_id = pu.id
+               WHERE c.article_id = ?
+               ORDER BY c.create_time ASC`;
 
     const [commentRows] = await pool.execute(query, [articleId]);
 
+    // 构建评论树
+    const tree = this.buildCommentTree(commentRows);
+
+    // 分页处理（只对根评论分页）
+    const rootComments = commentRows.filter(
+      (comment) => comment.parent_id === 0
+    );
+    const paginatedRootComments = rootComments.slice(offset, offset + size);
+
+    // 获取分页后的根评论ID列表
+    const paginatedRootIds = paginatedRootComments.map((c) => c.id);
+
+    // 构建分页后的列表（包含根评论和它们的子评论）
+    const list = commentRows.filter(
+      (comment) =>
+        (comment.parent_id === 0 && paginatedRootIds.includes(comment.id)) ||
+        (comment.parent_id !== 0 &&
+          paginatedRootIds.includes(
+            this.findRootParent(commentRows, comment.id)
+          ))
+    );
+
     return {
-      list: commentRows,
+      list,
+      tree,
       pagination: {
         page: pageNum,
         pageSize: size,
@@ -131,6 +154,49 @@ class CommentService {
         totalPages: Math.ceil(total / size),
       },
     };
+  }
+
+  /**
+   * 构建评论树结构
+   * @param {Array} comments - 平面评论数组
+   * @returns {Array} 树形结构的评论数组
+   */
+  buildCommentTree(comments) {
+    // 为每个评论添加 children 属性
+    const commentMap = {};
+    comments.forEach((comment) => {
+      comment.children = [];
+      commentMap[comment.id] = comment;
+    });
+
+    // 构建树结构
+    const tree = [];
+    comments.forEach((comment) => {
+      if (comment.parent_id === 0) {
+        tree.push(comment);
+      } else {
+        const parent = commentMap[comment.parent_id];
+        if (parent) {
+          parent.children.push(comment);
+        }
+      }
+    });
+
+    return tree;
+  }
+
+  /**
+   * 查找评论的根父评论ID
+   * @param {Array} comments - 所有评论
+   * @param {number} commentId - 评论ID
+   * @returns {number} 根父评论ID
+   */
+  findRootParent(comments, commentId) {
+    const comment = comments.find((c) => c.id === commentId);
+    if (!comment || comment.parent_id === 0) {
+      return commentId;
+    }
+    return this.findRootParent(comments, comment.parent_id);
   }
 
   /**
