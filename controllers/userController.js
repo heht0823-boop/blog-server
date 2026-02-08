@@ -224,12 +224,13 @@ class UserController {
    * 获取所有用户（管理员功能）
    */
   getAllUsers = asyncHandler(async (req, res, next) => {
-    const { page = 1, pageSize = 10, role } = req.query;
+    const { page = 1, pageSize = 10, role, search } = req.query;
 
     const result = await userService.getAllUsers(
       parseInt(page),
       parseInt(pageSize),
       role !== undefined ? parseInt(role) : undefined,
+      search,
     );
 
     successResponse(

@@ -135,9 +135,14 @@ class UserService {
   }
 
   /**
-   * 获取所有用户（分页）
+   * 获取所有用户（分页 + 筛选）
    */
-  async getAllUsers(page = 1, pageSize = 10, role = undefined) {
+  async getAllUsers(
+    page = 1,
+    pageSize = 10,
+    role = undefined,
+    search = undefined,
+  ) {
     const offset = (page - 1) * pageSize;
 
     let countQuery = "SELECT COUNT(*) as total FROM users";
@@ -146,18 +151,32 @@ class UserService {
     const countParams = [];
     const dataParams = [];
 
-    // 只有当 role 参数不为 undefined 且不是管理员查询所有用户时才应用过滤
-    // 如果 role=null 或者不传 role 参数，则显示所有用户
+    // 构建筛选条件
+    const conditions = [];
     if (role !== undefined && role !== null) {
-      countQuery += " WHERE role = ?";
-      dataQuery += " WHERE role = ?";
+      conditions.push("role = ?");
       countParams.push(role);
       dataParams.push(role);
     }
+    if (search) {
+      conditions.push("(username LIKE ? OR nickname LIKE ?)");
+      const searchTerm = `%${search}%`;
+      countParams.push(searchTerm, searchTerm);
+      dataParams.push(searchTerm, searchTerm);
+    }
 
+    // 如果有条件则拼接 WHERE 子句
+    if (conditions.length > 0) {
+      const whereClause = conditions.join(" AND ");
+      countQuery += ` WHERE ${whereClause}`;
+      dataQuery += ` WHERE ${whereClause}`;
+    }
+
+    // 执行总数查询
     const [countResult] = await pool.query(countQuery, countParams);
     const total = countResult[0].total;
 
+    // 执行分页数据查询
     dataQuery += " ORDER BY id DESC LIMIT ? OFFSET ?";
     dataParams.push(pageSize, offset);
 

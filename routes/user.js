@@ -106,7 +106,7 @@ router.get(
   "/",
   authMiddleware,
   adminMiddleware,
-  validate(paginationValidator),
+  validate([...paginationValidator, ...searchValidator]), // 合并校验规则
   UserController.getAllUsers,
 );
 

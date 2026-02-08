@@ -136,6 +136,14 @@ const roleValidator = [
     .withMessage("角色值必须在 0-1 之间")
     .toInt(),
 ];
+// ===== 搜索关键字验证 =====
+const searchValidator = [
+  query("search")
+    .optional()
+    .trim()
+    .isLength({ min: 1, max: 50 })
+    .withMessage("搜索关键字长度应在1-50个字符之间"),
+];
 
 module.exports = {
   registerValidator,
@@ -146,4 +154,5 @@ module.exports = {
   userIdValidator,
   paginationValidator,
   roleValidator,
+  searchValidator,
 };
