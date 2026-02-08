@@ -8,10 +8,10 @@ const {
   registerValidator,
   loginValidator,
   passwordUpdateValidator,
-  passwordResetValidator,
   updateUserValidator,
   userIdValidator,
   paginationValidator,
+  searchValidator,
 } = require("../middleware/userValidator"); // 修改这里
 const {
   authMiddleware,
@@ -19,7 +19,6 @@ const {
 } = require("../middleware/auth");
 const {
   adminMiddleware,
-  selfOrAdminMiddleware,
   loggedInUserAccessMiddleware,
 } = require("../middleware/permission");
 

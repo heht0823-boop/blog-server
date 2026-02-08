@@ -149,7 +149,6 @@ module.exports = {
   registerValidator,
   loginValidator,
   passwordUpdateValidator,
-  passwordResetValidator,
   updateUserValidator,
   userIdValidator,
   paginationValidator,
