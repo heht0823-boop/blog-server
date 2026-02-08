@@ -96,21 +96,6 @@ const passwordUpdateValidator = [
     }),
 ];
 
-// ===== 密码重置验证 =====
-const passwordResetValidator = [
-  body("newPassword")
-    .notEmpty()
-    .withMessage("新密码不能为空")
-    .isLength({ min: 6, max: 30 })
-    .withMessage("新密码长度 6-30 位")
-    .matches(/[a-z]/)
-    .withMessage("新密码必须包含小写字母")
-    .matches(/[A-Z]/)
-    .withMessage("新密码必须包含大写字母")
-    .matches(/[0-9]/)
-    .withMessage("新密码必须包含数字"),
-];
-
 const updateUserValidator = [
   body("nickname")
     .optional()

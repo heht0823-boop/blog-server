@@ -33,7 +33,7 @@ class UserController {
         ...tokens,
       },
       "注册成功",
-      201
+      201,
     );
   });
 
@@ -67,7 +67,7 @@ class UserController {
         },
         ...tokens,
       },
-      "登录成功"
+      "登录成功",
     );
   });
 
@@ -112,7 +112,7 @@ class UserController {
         create_time: user.create_time,
         update_time: user.update_time,
       },
-      "获取成功"
+      "获取成功",
     );
   });
 
@@ -139,12 +139,12 @@ class UserController {
         create_time: user.create_time,
         update_time: user.update_time,
       },
-      "获取成功"
+      "获取成功",
     );
   });
 
   /**
-   * 获取用户资料（自己或管理员）
+   * 获取用户资料（已登录用户可互访）
    */
   getUserProfile = asyncHandler(async (req, res, next) => {
     const { userId } = req.params;
@@ -155,6 +155,7 @@ class UserController {
       return errorResponse(res, null, "用户不存在", 404);
     }
 
+    // 返回公开信息（不包含敏感字段）
     successResponse(
       res,
       {
@@ -165,7 +166,7 @@ class UserController {
         role: user.role,
         create_time: user.create_time,
       },
-      "获取成功"
+      "获取成功",
     );
   });
 
@@ -196,7 +197,7 @@ class UserController {
         role: user.role,
         update_time: user.update_time,
       },
-      "更新成功"
+      "更新成功",
     );
   });
 
@@ -209,7 +210,7 @@ class UserController {
     const updated = await userService.updatePassword(
       req.user.id,
       oldPassword,
-      newPassword
+      newPassword,
     );
 
     if (!updated) {
@@ -228,7 +229,7 @@ class UserController {
     const result = await userService.getAllUsers(
       parseInt(page),
       parseInt(pageSize),
-      role !== undefined ? parseInt(role) : undefined
+      role !== undefined ? parseInt(role) : undefined,
     );
 
     successResponse(
@@ -246,7 +247,7 @@ class UserController {
           create_time: user.create_time,
         })),
       },
-      "获取成功"
+      "获取成功",
     );
   });
 
@@ -277,39 +278,6 @@ class UserController {
 
     successResponse(res, null, "删除成功");
   });
-  /**
-   * 管理员重置用户密码
-   */
-  resetUserPassword = asyncHandler(async (req, res, next) => {
-    try {
-      const { id } = req.params;
-      const { newPassword } = req.body;
-
-      // 检查目标用户是否存在
-      const user = await userService.getUserById(id);
-      if (!user) {
-        return errorResponse(res, null, "用户不存在", 404);
-      }
-
-      // 管理员不能重置自己的密码（避免意外操作）
-      if (parseInt(id) === req.user.id) {
-        return errorResponse(
-          res,
-          null,
-          "不能重置自己的密码，请使用修改密码接口",
-          400
-        );
-      }
-
-      // 重置密码
-      await userService.resetPasswordByAdmin(id, newPassword);
-
-      successResponse(res, null, "密码重置成功");
-    } catch (err) {
-      next(err);
-    }
-  });
-
   /**
    * 升级用户为管理员（管理员功能）
    */

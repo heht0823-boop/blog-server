@@ -12,7 +12,6 @@ const {
   updateUserValidator,
   userIdValidator,
   paginationValidator,
-  roleValidator,
 } = require("../middleware/userValidator"); // 修改这里
 const {
   authMiddleware,
@@ -21,6 +20,7 @@ const {
 const {
   adminMiddleware,
   selfOrAdminMiddleware,
+  loggedInUserAccessMiddleware,
 } = require("../middleware/permission");
 
 // ===== 速率限制 =====
@@ -47,7 +47,7 @@ router.post(
   "/register",
   registerLimiter,
   validate(registerValidator),
-  UserController.register
+  UserController.register,
 );
 
 // 用户登录
@@ -55,14 +55,14 @@ router.post(
   "/login",
   loginLimiter,
   validate(loginValidator),
-  UserController.login
+  UserController.login,
 );
 
 // 刷新 Token
 router.post(
   "/refresh-token",
   refreshTokenMiddleware,
-  UserController.refreshAccessToken
+  UserController.refreshAccessToken,
 );
 
 // ===== 需要认证的接口 =====
@@ -78,7 +78,7 @@ router.put(
   "/me",
   authMiddleware,
   validate(updateUserValidator),
-  UserController.updateUser
+  UserController.updateUser,
 );
 
 // 修改密码
@@ -86,15 +86,14 @@ router.put(
   "/me/password",
   authMiddleware,
   validate(passwordUpdateValidator),
-  UserController.updatePassword
+  UserController.updatePassword,
 );
-
-// 获取用户资料（自己或管理员）
+// 获取用户资料（已登录用户可互访）
 router.get(
   "/:userId/profile",
   authMiddleware,
-  selfOrAdminMiddleware("userId"),
-  UserController.getUserProfile
+  loggedInUserAccessMiddleware, // 替换原来的 selfOrAdminMiddleware
+  UserController.getUserProfile,
 );
 
 // 上传头像
@@ -108,7 +107,7 @@ router.get(
   authMiddleware,
   adminMiddleware,
   validate(paginationValidator),
-  UserController.getAllUsers
+  UserController.getAllUsers,
 );
 
 // 获取特定用户详情
@@ -117,7 +116,7 @@ router.get(
   authMiddleware,
   adminMiddleware,
   validate(userIdValidator),
-  UserController.getUserDetail
+  UserController.getUserDetail,
 );
 
 // 获取用户统计
@@ -125,16 +124,7 @@ router.get(
   "/stats/all",
   authMiddleware,
   adminMiddleware,
-  UserController.getUserStats
-);
-
-// 管理员重置用户密码
-router.put(
-  "/:id/password",
-  authMiddleware,
-  adminMiddleware,
-  validate([...userIdValidator, ...passwordResetValidator]),
-  UserController.resetUserPassword
+  UserController.getUserStats,
 );
 
 // 删除用户
@@ -143,7 +133,7 @@ router.delete(
   authMiddleware,
   adminMiddleware,
   validate(userIdValidator),
-  UserController.deleteUser
+  UserController.deleteUser,
 );
 
 // 升级用户为管理员
@@ -152,7 +142,7 @@ router.post(
   authMiddleware,
   adminMiddleware,
   validate(userIdValidator),
-  UserController.promoteToAdmin
+  UserController.promoteToAdmin,
 );
 
 // 降级用户为普通用户
@@ -161,7 +151,7 @@ router.post(
   authMiddleware,
   adminMiddleware,
   validate(userIdValidator),
-  UserController.demoteToUser
+  UserController.demoteToUser,
 );
 
 module.exports = router;

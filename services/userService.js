@@ -14,7 +14,7 @@ class UserService {
 
       const [result] = await pool.query(
         "INSERT INTO users (username, password, nickname, role) VALUES (?, ?, ?, ?)",
-        [username, hashedPwd, nickname || username, 0]
+        [username, hashedPwd, nickname || username, 0],
       );
 
       return result.insertId;
@@ -32,7 +32,7 @@ class UserService {
   async verifyUser(username, password) {
     const [users] = await pool.query(
       "SELECT id, username, password, nickname, avatar, role, create_time FROM users WHERE username = ?",
-      [username]
+      [username],
     );
 
     if (users.length === 0) {
@@ -55,7 +55,7 @@ class UserService {
   async getUserByUsername(username) {
     const [users] = await pool.query(
       "SELECT id FROM users WHERE username = ?",
-      [username]
+      [username],
     );
     return users[0] || null;
   }
@@ -66,7 +66,7 @@ class UserService {
   async getUserById(userId) {
     const [users] = await pool.query(
       "SELECT id, username, nickname, avatar, role, create_time, update_time FROM users WHERE id = ?",
-      [userId]
+      [userId],
     );
     return users[0] || null;
   }
@@ -94,7 +94,7 @@ class UserService {
 
     const [result] = await pool.query(
       `UPDATE users SET ${fields.join(", ")}, update_time = NOW() WHERE id = ?`,
-      values
+      values,
     );
 
     return result.affectedRows;
@@ -106,7 +106,7 @@ class UserService {
   async updatePassword(userId, oldPassword, newPassword) {
     const [users] = await pool.query(
       "SELECT password FROM users WHERE id = ?",
-      [userId]
+      [userId],
     );
 
     if (users.length === 0) {
@@ -128,7 +128,7 @@ class UserService {
 
     const [result] = await pool.query(
       "UPDATE users SET password = ?, update_time = NOW() WHERE id = ?",
-      [hashedPwd, userId]
+      [hashedPwd, userId],
     );
 
     return result.affectedRows > 0;
@@ -177,38 +177,6 @@ class UserService {
   }
 
   /**
-   * 管理员重置用户密码（不需要旧密码）
-   */
-  async resetPasswordByAdmin(userId, newPassword) {
-    // 检查密码强度
-    if (!newPassword || newPassword.length < 6 || newPassword.length > 30) {
-      throw new Error("密码长度必须在6-30位之间");
-    }
-
-    if (!/[a-z]/.test(newPassword)) {
-      throw new Error("密码必须包含小写字母");
-    }
-
-    if (!/[A-Z]/.test(newPassword)) {
-      throw new Error("密码必须包含大写字母");
-    }
-
-    if (!/[0-9]/.test(newPassword)) {
-      throw new Error("密码必须包含数字");
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    const hashedPwd = await bcrypt.hash(newPassword, salt);
-
-    const [result] = await pool.query(
-      "UPDATE users SET password = ?, update_time = NOW() WHERE id = ?",
-      [hashedPwd, userId]
-    );
-
-    return result.affectedRows > 0;
-  }
-
-  /**
    * 获取用户统计信息
    */
   async getUserStats() {
@@ -228,7 +196,7 @@ class UserService {
   async promoteToAdmin(userId) {
     const [result] = await pool.query(
       "UPDATE users SET role = 1 WHERE id = ? AND role = 0",
-      [userId]
+      [userId],
     );
 
     return result.affectedRows > 0;
@@ -240,7 +208,7 @@ class UserService {
   async demoteToUser(userId) {
     const [result] = await pool.query(
       "UPDATE users SET role = 0 WHERE id = ? AND role = 1",
-      [userId]
+      [userId],
     );
 
     return result.affectedRows > 0;

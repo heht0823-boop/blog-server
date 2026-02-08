@@ -14,7 +14,7 @@ const requireRole = (requiredRole) => {
     if (req.user.role < requiredRole) {
       const roleNames = { 0: "普通用户", 1: "管理员" };
       throw new AuthorizationError(
-        `权限不足，需要 ${roleNames[requiredRole]} 权限`
+        `权限不足，需要 ${roleNames[requiredRole]} 权限`,
       );
     }
 
@@ -45,10 +45,26 @@ const selfOrAdminMiddleware = (userIdParam = "userId") => {
     next();
   };
 };
+const loggedInUserAccessMiddleware = (req, res, next) => {
+  if (!req.user) {
+    throw new AuthenticationError("未认证");
+  }
 
+  const targetUserId = parseInt(req.params.userId);
+
+  if (isNaN(targetUserId) || targetUserId <= 0) {
+    const error = new Error("无效的用户 ID");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // 允许任意已登录用户访问
+  next();
+};
 module.exports = {
   ROLE_LEVELS,
   requireRole,
   adminMiddleware,
   selfOrAdminMiddleware,
+  loggedInUserAccessMiddleware,
 };
