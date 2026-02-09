@@ -26,7 +26,9 @@ class TagService {
     // 验证数据并去重
     const validTags = [];
     const processedNames = new Set();
+    const existingTags = [];
 
+    // 第一步：验证所有标签并检查是否已存在
     for (const tag of tags) {
       // 验证必填字段
       if (!tag.name || tag.name.trim() === "") {
@@ -43,26 +45,32 @@ class TagService {
       // 检查数据库中是否已存在同名标签
       const existingTag = await this.getTagByName(tagName);
       if (existingTag) {
-        continue; // 跳过已存在的标签
+        existingTags.push(tagName);
+      } else {
+        validTags.push({ name: tagName });
       }
 
-      validTags.push({ name: tagName });
       processedNames.add(tagName);
     }
 
+    // 如果有任何已存在的标签，抛出错误
+    if (existingTags.length > 0) {
+      throw new Error(`以下标签已存在: ${existingTags.join(", ")}`);
+    }
+
+    // 如果没有有效的标签需要创建
     if (validTags.length === 0) {
       return isBatch ? 0 : null;
     }
 
-    // 构建占位符和值
+    // 执行批量插入
     const placeholders = validTags.map(() => "(?)").join(", ");
     const values = validTags.map((tag) => tag.name);
 
     const query = `INSERT INTO tags (name) VALUES ${placeholders}`;
-
     const [result] = await pool.query(query, values);
 
-    // 如果是单个插入，返回 insertId；如果是批量插入，返回受影响行数信息
+    // 返回结果
     if (isBatch) {
       return {
         affectedRows: result.affectedRows,
@@ -80,11 +88,11 @@ class TagService {
 
     const [tags] = await pool.query(
       "SELECT * FROM tags ORDER BY create_time DESC LIMIT ? OFFSET ?",
-      [pageSize, offset]
+      [pageSize, offset],
     );
 
     const [countResult] = await pool.query(
-      "SELECT COUNT(*) as total FROM tags"
+      "SELECT COUNT(*) as total FROM tags",
     );
     const total = countResult[0].total;
 
@@ -134,7 +142,7 @@ class TagService {
 
     const [result] = await pool.query(
       `UPDATE tags SET ${fields.join(", ")}, update_time = NOW() WHERE id = ?`,
-      values
+      values,
     );
 
     return result.affectedRows;
@@ -147,7 +155,7 @@ class TagService {
     // 检查是否有文章使用了这个标签
     const [articleCount] = await pool.query(
       "SELECT COUNT(*) as count FROM article_tags WHERE tag_id = ?",
-      [tagId]
+      [tagId],
     );
 
     if (articleCount[0].count > 0) {
@@ -163,7 +171,7 @@ class TagService {
    */
   async getAllTags() {
     const [tags] = await pool.query(
-      "SELECT * FROM tags ORDER BY create_time DESC"
+      "SELECT * FROM tags ORDER BY create_time DESC",
     );
     return tags;
   }
