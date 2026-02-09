@@ -12,6 +12,7 @@ const {
   userIdValidator,
   paginationValidator,
   searchValidator,
+  roleUpdateValidator,
 } = require("../middleware/userValidator"); // 修改这里
 const {
   authMiddleware,
@@ -125,6 +126,14 @@ router.get(
   adminMiddleware,
   UserController.getUserStats,
 );
+// 修改用户角色（支持升级/降级）
+router.patch(
+  "/:id/role",
+  authMiddleware,
+  adminMiddleware,
+  validate(roleUpdateValidator),
+  UserController.updateUserRole,
+);
 
 // 删除用户
 router.delete(
@@ -134,23 +143,4 @@ router.delete(
   validate(userIdValidator),
   UserController.deleteUser,
 );
-
-// 升级用户为管理员
-router.post(
-  "/:id/promote",
-  authMiddleware,
-  adminMiddleware,
-  validate(userIdValidator),
-  UserController.promoteToAdmin,
-);
-
-// 降级用户为普通用户
-router.post(
-  "/:id/demote",
-  authMiddleware,
-  adminMiddleware,
-  validate(userIdValidator),
-  UserController.demoteToUser,
-);
-
 module.exports = router;

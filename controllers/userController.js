@@ -280,43 +280,32 @@ class UserController {
     successResponse(res, null, "删除成功");
   });
   /**
-   * 升级用户为管理员（管理员功能）
+   * 更新用户角色（支持升级/降级）
    */
-  promoteToAdmin = asyncHandler(async (req, res, next) => {
+  updateUserRole = asyncHandler(async (req, res, next) => {
     const { id } = req.params;
+    const { role } = req.body;
 
     if (parseInt(id) === req.user.id) {
-      return errorResponse(res, null, "不能升级自己", 400);
+      return errorResponse(res, null, "不能修改自己的角色", 400);
     }
 
-    const promoted = await userService.promoteToAdmin(id);
-
-    if (!promoted) {
-      return errorResponse(res, null, "用户不存在或已是管理员", 404);
+    // 根据目标角色调用对应的服务方法
+    let updated;
+    if (role === 1) {
+      updated = await userService.promoteToAdmin(id);
+    } else if (role === 0) {
+      updated = await userService.demoteToUser(id);
+    } else {
+      return errorResponse(res, null, "无效的角色值", 400);
     }
 
-    successResponse(res, null, "升级成功");
+    if (!updated) {
+      return errorResponse(res, null, "用户不存在或角色未发生变化", 404);
+    }
+
+    successResponse(res, null, "角色更新成功");
   });
-
-  /**
-   * 降级用户为普通用户（管理员功能）
-   */
-  demoteToUser = asyncHandler(async (req, res, next) => {
-    const { id } = req.params;
-
-    if (parseInt(id) === req.user.id) {
-      return errorResponse(res, null, "不能降级自己", 400);
-    }
-
-    const demoted = await userService.demoteToUser(id);
-
-    if (!demoted) {
-      return errorResponse(res, null, "用户不存在或不是管理员", 404);
-    }
-
-    successResponse(res, null, "降级成功");
-  });
-
   /**
    * 上传头像
    */

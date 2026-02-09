@@ -185,6 +185,17 @@ class UserService {
     return { total, users };
   }
   /**
+   * 更新用户角色（支持升级/降级）
+   */
+  async updateUserRole(userId, role) {
+    const [result] = await pool.query(
+      "UPDATE users SET role = ? WHERE id = ? AND role != ?",
+      [role, userId, role],
+    );
+
+    return result.affectedRows > 0;
+  }
+  /**
    * 删除用户
    */
   async deleteUser(userId) {
@@ -207,30 +218,6 @@ class UserService {
     `);
 
     return stats[0];
-  }
-
-  /**
-   * 升级用户为管理员
-   */
-  async promoteToAdmin(userId) {
-    const [result] = await pool.query(
-      "UPDATE users SET role = 1 WHERE id = ? AND role = 0",
-      [userId],
-    );
-
-    return result.affectedRows > 0;
-  }
-
-  /**
-   * 降级用户为普通用户
-   */
-  async demoteToUser(userId) {
-    const [result] = await pool.query(
-      "UPDATE users SET role = 0 WHERE id = ? AND role = 1",
-      [userId],
-    );
-
-    return result.affectedRows > 0;
   }
 }
 
