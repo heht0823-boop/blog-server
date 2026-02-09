@@ -10,12 +10,17 @@ class CategoryController {
    * 创建分类（支持单个或批量创建）
    */
   createCategory = asyncHandler(async (req, res, next) => {
-    const categoriesData = req.body;
-
-    // 调用服务层创建分类
-    const result = await categoryService.createCategory(categoriesData);
-
-    successResponse(res, result, "分类创建成功", 201);
+    try {
+      const categoriesData = req.body;
+      const result = await categoryService.createCategory(categoriesData);
+      successResponse(res, result, "分类创建成功", 201);
+    } catch (err) {
+      // 特别处理重复创建的情况
+      if (err.message.startsWith("以下分类已存在:")) {
+        return errorResponse(res, null, err.message, 400);
+      }
+      next(err);
+    }
   });
   /**
    * 获取分类列表
@@ -25,7 +30,7 @@ class CategoryController {
 
     const result = await categoryService.getCategories(
       parseInt(page),
-      parseInt(pageSize)
+      parseInt(pageSize),
     );
 
     successResponse(
@@ -36,7 +41,7 @@ class CategoryController {
         pageSize: parseInt(pageSize),
         categories: result.categories,
       },
-      "获取成功"
+      "获取成功",
     );
   });
 

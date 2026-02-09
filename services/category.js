@@ -45,7 +45,19 @@ class CategoryService {
       if (existingCategory) {
         continue; // 跳过已存在的分类
       }
+      if (validCategories.length === 0) {
+        // 收集已存在的分类名称
+        const existingCategories = [];
+        for (const category of categories) {
+          const categoryName = category.name.trim();
+          const existingCategory = await this.getCategoryByName(categoryName);
+          if (existingCategory) {
+            existingCategories.push(categoryName);
+          }
+        }
 
+        throw new Error(`以下分类已存在: ${existingCategories.join(", ")}`);
+      }
       validCategories.push({
         name: categoryName,
         sort: category.sort || 0,
@@ -83,11 +95,11 @@ class CategoryService {
 
     const [categories] = await pool.query(
       "SELECT * FROM categories ORDER BY sort DESC, create_time DESC LIMIT ? OFFSET ?",
-      [pageSize, offset]
+      [pageSize, offset],
     );
 
     const [countResult] = await pool.query(
-      "SELECT COUNT(*) as total FROM categories"
+      "SELECT COUNT(*) as total FROM categories",
     );
     const total = countResult[0].total;
 
@@ -100,7 +112,7 @@ class CategoryService {
   async getCategoryById(categoryId) {
     const [categories] = await pool.query(
       "SELECT * FROM categories WHERE id = ?",
-      [categoryId]
+      [categoryId],
     );
 
     return categories[0] || null;
@@ -112,7 +124,7 @@ class CategoryService {
   async getCategoryByName(name) {
     const [categories] = await pool.query(
       "SELECT * FROM categories WHERE name = ?",
-      [name]
+      [name],
     );
 
     return categories[0] || null;
@@ -141,9 +153,9 @@ class CategoryService {
 
     const [result] = await pool.query(
       `UPDATE categories SET ${fields.join(
-        ", "
+        ", ",
       )}, update_time = NOW() WHERE id = ?`,
-      values
+      values,
     );
 
     return result.affectedRows;
@@ -156,7 +168,7 @@ class CategoryService {
     // 检查是否有文章属于这个分类
     const [articleCount] = await pool.query(
       "SELECT COUNT(*) as count FROM articles WHERE category_id = ?",
-      [categoryId]
+      [categoryId],
     );
 
     if (articleCount[0].count > 0) {
@@ -174,7 +186,7 @@ class CategoryService {
    */
   async getAllCategories() {
     const [categories] = await pool.query(
-      "SELECT * FROM categories ORDER BY sort DESC, create_time DESC"
+      "SELECT * FROM categories ORDER BY sort DESC, create_time DESC",
     );
     return categories;
   }

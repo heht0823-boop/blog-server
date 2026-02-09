@@ -286,25 +286,23 @@ class UserController {
     const { id } = req.params;
     const { role } = req.body;
 
+    // 防止用户修改自己的角色
     if (parseInt(id) === req.user.id) {
       return errorResponse(res, null, "不能修改自己的角色", 400);
     }
 
-    // 根据目标角色调用对应的服务方法
-    let updated;
-    if (role === 1) {
-      updated = await userService.promoteToAdmin(id);
-    } else if (role === 0) {
-      updated = await userService.demoteToUser(id);
-    } else {
-      return errorResponse(res, null, "无效的角色值", 400);
-    }
+    try {
+      // 调用服务层统一方法
+      const updated = await userService.updateUserRole(id, role);
 
-    if (!updated) {
-      return errorResponse(res, null, "用户不存在或角色未发生变化", 404);
-    }
+      if (!updated) {
+        return errorResponse(res, null, "用户不存在或角色未发生变化", 404);
+      }
 
-    successResponse(res, null, "角色更新成功");
+      successResponse(res, null, "角色更新成功");
+    } catch (err) {
+      next(err); // 抛给全局错误处理器
+    }
   });
   /**
    * 上传头像
