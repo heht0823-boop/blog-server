@@ -26,7 +26,9 @@ class CategoryService {
     // 验证数据并去重
     const validCategories = [];
     const processedNames = new Set();
+    const existingCategories = [];
 
+    // 第一步：验证所有分类并检查是否已存在
     for (const category of categories) {
       // 验证必填字段
       if (!category.name || category.name.trim() === "") {
@@ -43,41 +45,35 @@ class CategoryService {
       // 检查数据库中是否已存在同名分类
       const existingCategory = await this.getCategoryByName(categoryName);
       if (existingCategory) {
-        continue; // 跳过已存在的分类
+        existingCategories.push(categoryName);
+      } else {
+        validCategories.push({
+          name: categoryName,
+          sort: category.sort || 0,
+        });
       }
-      if (validCategories.length === 0) {
-        // 收集已存在的分类名称
-        const existingCategories = [];
-        for (const category of categories) {
-          const categoryName = category.name.trim();
-          const existingCategory = await this.getCategoryByName(categoryName);
-          if (existingCategory) {
-            existingCategories.push(categoryName);
-          }
-        }
 
-        throw new Error(`以下分类已存在: ${existingCategories.join(", ")}`);
-      }
-      validCategories.push({
-        name: categoryName,
-        sort: category.sort || 0,
-      });
       processedNames.add(categoryName);
     }
 
+    // 如果有任何已存在的分类，抛出错误
+    if (existingCategories.length > 0) {
+      throw new Error(`以下分类已存在: ${existingCategories.join(", ")}`);
+    }
+
+    // 如果没有有效的分类需要创建
     if (validCategories.length === 0) {
       return isBatch ? 0 : null;
     }
 
-    // 构建占位符和值
+    // 执行批量插入
     const placeholders = validCategories.map(() => "(?, ?)").join(", ");
     const values = validCategories.flatMap((cat) => [cat.name, cat.sort]);
 
     const query = `INSERT INTO categories (name, sort) VALUES ${placeholders}`;
-
     const [result] = await pool.query(query, values);
 
-    // 如果是单个插入，返回 insertId；如果是批量插入，返回 affectedRows
+    // 返回结果
     if (isBatch) {
       return {
         affectedRows: result.affectedRows,

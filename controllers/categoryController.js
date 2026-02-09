@@ -85,28 +85,30 @@ class CategoryController {
   /**
    * 删除分类
    */
-  deleteCategory = asyncHandler(async (req, res, next) => {
-    const { id } = req.params;
+  async deleteCategory(categoryId) {
+    // 检查是否有文章属于这个分类
+    const [articleCount] = await pool.query(
+      "SELECT COUNT(*) as count FROM articles WHERE category_id = ?",
+      [categoryId],
+    );
 
-    // 检查分类是否存在
-    const existingCategory = await categoryService.getCategoryById(id);
-    if (!existingCategory) {
-      return errorResponse(res, null, "分类不存在", 404);
+    if (articleCount[0].count > 0) {
+      throw new Error("该分类下还有文章，无法删除");
     }
 
-    try {
-      const deleted = await categoryService.deleteCategory(id);
+    const [result] = await pool.query("DELETE FROM categories WHERE id = ?", [
+      categoryId,
+    ]);
+    return result.affectedRows > 0;
+  }
 
-      if (!deleted) {
-        return errorResponse(res, null, "分类删除失败", 500);
-      }
-
-      successResponse(res, null, "分类删除成功");
-    } catch (err) {
-      return errorResponse(res, null, err.message, 400);
-    }
-  });
-
+  async getAllCategories() {
+    const [categories] = await pool.query(
+      "SELECT * FROM categories ORDER BY sort DESC, create_time DESC",
+    );
+    return categories;
+  }
+}
   /**
    * 获取所有分类（不分页）
    */
