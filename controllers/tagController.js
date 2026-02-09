@@ -10,14 +10,19 @@ class TagController {
    * 创建标签（支持单个或批量创建）
    */
   createTag = asyncHandler(async (req, res, next) => {
-    const tagsData = req.body;
-
-    // 调用服务层创建标签
-    const result = await tagService.createTag(tagsData);
-
-    successResponse(res, result, "标签创建成功", 201);
+    try {
+      const tagsData = req.body;
+      const result = await tagService.createTag(tagsData);
+      successResponse(res, result, "标签创建成功", 201);
+    } catch (err) {
+      // 特别处理重复创建的情况
+      if (err.message.startsWith("以下标签已存在:")) {
+        return errorResponse(res, null, err.message, 400);
+      }
+      // 其他错误继续传递给错误处理中间件
+      next(err);
+    }
   });
-
   /**
    * 获取标签列表
    */
@@ -34,7 +39,7 @@ class TagController {
         pageSize: parseInt(pageSize),
         tags: result.tags,
       },
-      "获取成功"
+      "获取成功",
     );
   });
 
