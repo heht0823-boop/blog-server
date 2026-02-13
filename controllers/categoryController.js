@@ -109,13 +109,12 @@ class CategoryController {
     return categories;
   }
 }
-  /**
-   * 获取所有分类（不分页）
-   */
-  getAllCategories = asyncHandler(async (req, res, next) => {
-    const categories = await categoryService.getAllCategories();
-    successResponse(res, categories, "获取成功");
-  });
-}
+/**
+ * 获取所有分类（不分页）
+ */
+getAllCategories = asyncHandler(async (req, res, next) => {
+  const categories = await categoryService.getAllCategories();
+  successResponse(res, categories, "获取成功");
+});
 
 module.exports = new CategoryController();

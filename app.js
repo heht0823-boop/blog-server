@@ -2,6 +2,7 @@ const express = require("express");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const cors = require("cors");
+const path = require("path"); // 新增：引入path模块处理路径
 require("dotenv").config();
 
 const { errorHandler, addTraceId } = require("./middleware/errorHandler");
@@ -15,15 +16,18 @@ const commentRouter = require("./routes/comment");
 
 const app = express();
 
-// ===== 安全中间件 =====
+// ===== 1. 安全中间件（全局严格配置）=====
 app.use(helmet());
 
-// ===== 追踪 ID =====
+// ===== 2. 追踪 ID =====
 app.use(addTraceId);
 
-// ===== CORS 中间件 =====
+// ===== 3. CORS 中间件（全局）=====
 const corsOptions = {
-  origin: (process.env.CORS_ORIGIN || "http://localhost:5173").split(","),
+  origin:
+    process.env.NODE_ENV === "production"
+      ? (process.env.CORS_ORIGIN || "http://localhost:5173").split(",")
+      : "*",
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
@@ -31,7 +35,7 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-// ===== 全局速率限制 =====
+// ===== 4. 全局速率限制 =====
 const globalRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
@@ -40,15 +44,34 @@ const globalRateLimiter = rateLimit({
 });
 app.use(globalRateLimiter);
 
-// ===== 请求体解析 =====
+// ===== 5. 请求体解析 =====
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// ===== 静态文件 =====
+// ===== 6. 静态资源配置（关键修复）=====
 const uploadDir = process.env.UPLOAD_DIR || "./public/uploads";
-app.use("/uploads", express.static(uploadDir));
+const absoluteUploadDir = path.resolve(__dirname, uploadDir); // 先定义变量
 
-// ===== 健康检查 =====
+// 步骤1：为/uploads路径覆盖Cross-Origin-Resource-Policy头
+app.use("/uploads", (req, res, next) => {
+  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+  next();
+});
+
+// 步骤2：为/uploads路径加强CORS（仅GET）
+app.use(
+  "/uploads",
+  cors({
+    origin: "*",
+    methods: ["GET"],
+    optionsSuccessStatus: 200,
+  }),
+);
+
+// 步骤3：配置静态资源（只配一次）
+app.use("/uploads", express.static(absoluteUploadDir));
+
+// ===== 7. 健康检查 =====
 app.get("/health", (req, res) => {
   res.json({
     code: 200,
@@ -61,7 +84,7 @@ app.get("/health", (req, res) => {
   });
 });
 
-// ===== 根路径 =====
+// ===== 8. 根路径 =====
 app.get("/", (req, res) => {
   res.json({
     code: 200,
@@ -70,14 +93,14 @@ app.get("/", (req, res) => {
   });
 });
 
-// ===== API 路由 =====
+// ===== 9. API 路由 =====
 app.use("/api/user", userRouter);
 app.use("/api/article", articleRouter);
 app.use("/api/category", categoryRouter);
 app.use("/api/tag", tagRouter);
 app.use("/api/comment", commentRouter);
 
-// ===== 404 处理 =====
+// ===== 10. 404 处理 =====
 app.use((req, res) => {
   res.status(404).json({
     code: 404,
@@ -87,7 +110,7 @@ app.use((req, res) => {
   });
 });
 
-// ===== 全局错误处理 =====
+// ===== 11. 全局错误处理 =====
 app.use(errorHandler);
 
 // ===== 启动服务 =====
@@ -102,9 +125,9 @@ const startServer = async () => {
       console.log("=".repeat(50));
       console.log(`📍 服务地址: http://localhost:${port}`);
       console.log(
-        `🔐 CORS 来源: ${process.env.CORS_ORIGIN || "http://localhost:5173"}`
+        `🔐 CORS 来源: ${process.env.CORS_ORIGIN || "http://localhost:5173"}`,
       );
-      console.log(`📁 上传目录: ${uploadDir}`);
+      console.log(`📁 上传目录: ${absoluteUploadDir}`); // 打印绝对路径
       console.log(`🔧 环境: ${process.env.NODE_ENV || "development"}`);
       console.log("=".repeat(50) + "\n");
     });

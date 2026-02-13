@@ -38,7 +38,7 @@ const fileFilter = (req, file, cb) => {
   if (file.size > MAX_SIZE) {
     return cb(
       new Error(`文件大小超过限制，最大支持${process.env.UPLOAD_MAX_SIZE}`),
-      false
+      false,
     );
   }
   cb(null, true);
@@ -56,6 +56,10 @@ const upload = multer({
  * - 返回文件访问URL
  */
 const handleUpload = (fieldName) => {
+  // 从环境变量读取后端公网地址，没有则用默认
+  const SERVER_DOMAIN =
+    process.env.SERVER_DOMAIN || "http://101.132.192.107:3000";
+
   return (req, res, next) => {
     upload.single(fieldName)(req, res, (err) => {
       if (err) {
@@ -64,10 +68,8 @@ const handleUpload = (fieldName) => {
       if (!req.file) {
         return errorResponse(res, null, "请选择文件", 400);
       }
-      // 构建文件访问URL（后端域名+文件路径）
-      const fileUrl = `${req.protocol}://${req.get("host")}/uploads/${
-        req.file.filename
-      }`;
+      // 构建文件访问URL（用固定公网地址，避免 req.get("host") 取到内网IP）
+      const fileUrl = `${SERVER_DOMAIN}/uploads/${req.file.filename}`;
       req.uploadFile = {
         url: fileUrl,
         path: req.file.path,
