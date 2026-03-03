@@ -35,30 +35,17 @@ class TagController {
 
     const result = await tagService.getTags(pageNum, pageSizeNum);
 
-    // 根据是否分页返回不同的响应格式
-    if (pageNum === null || pageSizeNum === null) {
-      // 不分页，直接返回数组
-      successResponse(
-        res,
-        {
-          total: result.total,
-          tags: result.tags,
-        },
-        "获取成功",
-      );
-    } else {
-      // 分页返回
-      successResponse(
-        res,
-        {
-          total: result.total,
-          page: pageNum,
-          pageSize: pageSizeNum,
-          tags: result.tags,
-        },
-        "获取成功",
-      );
-    }
+    // 统一响应格式
+    successResponse(
+      res,
+      {
+        total: result.total,
+        page: pageNum || 0, // 不分页时为 0
+        pageSize: pageSizeNum || 0, // 不分页时为 0
+        tags: result.tags,
+      },
+      "获取成功",
+    );
   });
 
   /**
