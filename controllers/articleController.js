@@ -57,7 +57,7 @@ class ArticleController {
       await articleService.verifyArticleOwnership(
         id,
         userId,
-        isAdmin ? "admin" : "user"
+        isAdmin ? "admin" : "user",
       );
 
       const updateData = {
@@ -76,7 +76,7 @@ class ArticleController {
       const updated = await articleService.updateArticle(
         id,
         updateData,
-        isAdmin ? "admin" : "user"
+        isAdmin ? "admin" : "user",
       );
 
       if (!updated) {
@@ -122,7 +122,7 @@ class ArticleController {
       await articleService.verifyArticleOwnership(
         id,
         userId,
-        isAdmin ? "admin" : "user"
+        isAdmin ? "admin" : "user",
       );
 
       const deleted = await articleService.deleteArticle(id);
@@ -161,7 +161,7 @@ class ArticleController {
 
       const { userId } = req.query;
       const stats = await articleService.getArticleStats(
-        userId ? parseInt(userId) : null
+        userId ? parseInt(userId) : null,
       );
       successResponse(res, stats, "获取成功");
     } catch (err) {
@@ -189,7 +189,7 @@ class ArticleController {
       await articleService.verifyArticleOwnership(
         id,
         userId,
-        isAdmin ? "admin" : "user"
+        isAdmin ? "admin" : "user",
       );
 
       // 先清除原有的标签关联
@@ -247,7 +247,7 @@ class ArticleController {
       await articleService.verifyArticleOwnership(
         id,
         userId,
-        isAdmin ? "admin" : "user"
+        isAdmin ? "admin" : "user",
       );
 
       // 清除标签关联
@@ -283,7 +283,7 @@ class ArticleController {
         parseInt(page),
         parseInt(pageSize),
         currentUserRole,
-        currentUserId
+        currentUserId,
       );
 
       successResponse(
@@ -294,7 +294,7 @@ class ArticleController {
           pageSize: parseInt(pageSize),
           articles: result.articles,
         },
-        "获取成功"
+        "获取成功",
       );
     } catch (err) {
       next(err);
@@ -325,7 +325,7 @@ class ArticleController {
         parseInt(page),
         parseInt(pageSize),
         filters,
-        userRole
+        userRole,
       );
 
       successResponse(
@@ -336,7 +336,7 @@ class ArticleController {
           pageSize: parseInt(pageSize),
           articles: result.articles,
         },
-        "获取成功"
+        "获取成功",
       );
     } catch (err) {
       next(err);
@@ -386,7 +386,7 @@ class ArticleController {
           res,
           null,
           "搜索关键词长度应在1-50个字符之间",
-          400
+          400,
         );
       }
 
@@ -394,7 +394,7 @@ class ArticleController {
         keyword,
         parseInt(page),
         parseInt(pageSize),
-        userRole
+        userRole,
       );
 
       successResponse(
@@ -406,7 +406,7 @@ class ArticleController {
           articles: result.articles,
           keyword,
         },
-        "搜索成功"
+        "搜索成功",
       );
     } catch (err) {
       next(err);
@@ -423,7 +423,7 @@ class ArticleController {
 
       const popularArticles = await articleService.getPopularArticles(
         10,
-        userRole
+        userRole,
       );
       successResponse(res, popularArticles, "获取成功");
     } catch (err) {
@@ -448,39 +448,6 @@ class ArticleController {
       next(err);
     }
   });
-
-  /**
-   * 获取分类下文章
-   */
-  getArticlesByCategory = asyncHandler(async (req, res, next) => {
-    try {
-      const { categoryId } = req.params;
-      const { page = 1, pageSize = 10 } = req.query;
-      const isAdmin = req.user && req.user.role === 1;
-      const userRole = isAdmin ? "admin" : "user";
-
-      const result = await articleService.getArticlesByCategory(
-        categoryId,
-        parseInt(page),
-        parseInt(pageSize),
-        userRole
-      );
-
-      successResponse(
-        res,
-        {
-          total: result.total,
-          page: parseInt(page),
-          pageSize: parseInt(pageSize),
-          articles: result.articles,
-        },
-        "获取成功"
-      );
-    } catch (err) {
-      next(err);
-    }
-  });
-
   /**
    * 置顶文章
    */

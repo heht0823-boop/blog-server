@@ -11,7 +11,7 @@ class ArticleService {
       // 检查是否已存在相同标题的文章
       const [existingArticles] = await pool.query(
         "SELECT id FROM articles WHERE title = ?",
-        [title]
+        [title],
       );
 
       if (existingArticles.length > 0) {
@@ -28,7 +28,7 @@ class ArticleService {
 
         const [categories] = await pool.query(
           "SELECT id FROM categories WHERE id = ?",
-          [categoryIdNum]
+          [categoryIdNum],
         );
 
         if (categories.length === 0) {
@@ -45,7 +45,7 @@ class ArticleService {
       const [result] = await pool.query(
         `INSERT INTO articles (title, content, cover, category_id, status, user_id) 
        VALUES (?, ?, ?, ?, ?, ?)`,
-        [title, content, cover, categoryId, 0, user_id]
+        [title, content, cover, categoryId, 0, user_id],
       );
 
       return result.insertId;
@@ -192,7 +192,7 @@ class ArticleService {
 
       const [categories] = await pool.query(
         "SELECT id FROM categories WHERE id = ?",
-        [categoryIdNum]
+        [categoryIdNum],
       );
 
       if (categories.length === 0) {
@@ -222,9 +222,9 @@ class ArticleService {
 
     const [result] = await pool.query(
       `UPDATE articles SET ${fields.join(
-        ", "
+        ", ",
       )}, update_time = NOW() WHERE id = ?`,
-      values
+      values,
     );
 
     return result.affectedRows;
@@ -270,7 +270,7 @@ class ArticleService {
 
       const [articles] = await pool.query(
         `${baseQuery} ORDER BY create_time DESC LIMIT ? OFFSET ?`,
-        [...queryParams, pageSize, offset]
+        [...queryParams, pageSize, offset],
       );
 
       const [countResult] = await pool.query(baseCountQuery, countParams);
@@ -299,7 +299,7 @@ class ArticleService {
       // 获取总文章数
       const [totalResult] = await pool.query(
         `SELECT COUNT(*) as total FROM articles a ${whereClause}`,
-        params
+        params,
       );
       const total = totalResult[0].total;
 
@@ -313,7 +313,7 @@ class ArticleService {
        }
        GROUP BY c.id, c.name 
        HAVING count > 0`,
-        categoryParams
+        categoryParams,
       );
 
       // 获取状态统计
@@ -323,7 +323,7 @@ class ArticleService {
               COUNT(*) as count 
        FROM articles a ${whereClause} 
        GROUP BY a.status`,
-        params
+        params,
       );
 
       // 获取时间趋势统计（近7天）
@@ -335,7 +335,7 @@ class ArticleService {
        ${userId ? "AND a.user_id = ?" : ""}
        GROUP BY DATE(a.create_time) 
        ORDER BY date`,
-        trendParams
+        trendParams,
       );
 
       // 获取置顶统计
@@ -344,7 +344,7 @@ class ArticleService {
          SUM(CASE WHEN a.is_top = 1 THEN 1 ELSE 0 END) as top,
          SUM(CASE WHEN a.is_top = 0 OR a.is_top IS NULL THEN 1 ELSE 0 END) as not_top
        FROM articles a ${whereClause}`,
-        params
+        params,
       );
       const topStats = topStatsResult[0];
 
@@ -393,7 +393,7 @@ class ArticleService {
     try {
       const [result] = await pool.query(
         "UPDATE articles SET read_count = read_count + 1 WHERE id = ?",
-        [articleId]
+        [articleId],
       );
 
       return result.affectedRows > 0;
@@ -401,50 +401,6 @@ class ArticleService {
       throw err;
     }
   }
-
-  /**
-   * 获取分类下的文章
-   */
-  async getArticlesByCategory(
-    categoryId,
-    page = 1,
-    pageSize = 10,
-    userRole = "user"
-  ) {
-    try {
-      const offset = (page - 1) * pageSize;
-
-      let query = `SELECT * FROM articles WHERE category_id = ?`;
-      const params = [categoryId];
-
-      // 权限控制：非管理员只能获取已发布文章
-      if (userRole !== "admin") {
-        query += " AND status = 1";
-      }
-
-      query += " ORDER BY create_time DESC LIMIT ? OFFSET ?";
-      params.push(pageSize, offset);
-
-      const [articles] = await pool.query(query, params);
-
-      // 获取总数
-      let countQuery =
-        "SELECT COUNT(*) as total FROM articles WHERE category_id = ?";
-      const countParams = [categoryId];
-
-      if (userRole !== "admin") {
-        countQuery += " AND status = 1";
-      }
-
-      const [countResult] = await pool.query(countQuery, countParams);
-      const total = countResult[0].total;
-
-      return { total, articles };
-    } catch (err) {
-      throw err;
-    }
-  }
-
   /**
    * 获取用户文章列表（带权限控制）
    */
@@ -453,7 +409,7 @@ class ArticleService {
     page = 1,
     pageSize = 10,
     currentUserRole = "user",
-    currentUserId = null
+    currentUserId = null,
   ) {
     try {
       const offset = (page - 1) * pageSize;
@@ -493,7 +449,7 @@ class ArticleService {
       const placeholders = articleIds.map(() => "?").join(",");
       const [result] = await pool.query(
         `DELETE FROM articles WHERE id IN (${placeholders})`,
-        articleIds
+        articleIds,
       );
 
       return result.affectedRows;
@@ -511,7 +467,7 @@ class ArticleService {
         `SELECT t.* FROM tags t
          INNER JOIN article_tags at ON t.id = at.tag_id
          WHERE at.article_id = ?`,
-        [articleId]
+        [articleId],
       );
 
       return tags;
@@ -528,7 +484,7 @@ class ArticleService {
       // 先检查是否已存在关联
       const [existing] = await pool.query(
         "SELECT 1 FROM article_tags WHERE article_id = ? AND tag_id = ?",
-        [articleId, tagId]
+        [articleId, tagId],
       );
 
       // 如果已存在，则不重复插入
@@ -538,7 +494,7 @@ class ArticleService {
 
       const [result] = await pool.query(
         "INSERT INTO article_tags (article_id, tag_id) VALUES (?, ?)",
-        [articleId, tagId]
+        [articleId, tagId],
       );
 
       return result.insertId;
@@ -553,7 +509,7 @@ class ArticleService {
     try {
       const [result] = await pool.query(
         "DELETE FROM article_tags WHERE article_id = ? AND tag_id = ?",
-        [articleId, tagId]
+        [articleId, tagId],
       );
 
       return result.affectedRows > 0;
@@ -569,7 +525,7 @@ class ArticleService {
     try {
       const [articles] = await pool.query(
         "SELECT user_id FROM articles WHERE id = ?",
-        [articleId]
+        [articleId],
       );
 
       if (articles.length === 0) {
@@ -594,7 +550,7 @@ class ArticleService {
     try {
       const [result] = await pool.query(
         "DELETE FROM article_tags WHERE article_id = ?",
-        [articleId]
+        [articleId],
       );
       return result.affectedRows;
     } catch (err) {

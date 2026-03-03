@@ -24,7 +24,7 @@ router.get(
   "/",
   authMiddleware,
   validate([...paginationValidator, ...articleQueryValidator]),
-  ArticleController.getArticles
+  ArticleController.getArticles,
 );
 
 // 搜索文章
@@ -32,23 +32,11 @@ router.get(
   "/search",
   authMiddleware,
   validate([...paginationValidator, ...articleSearchValidator]),
-  ArticleController.searchArticles
+  ArticleController.searchArticles,
 );
 
 // 获取热门文章
 router.get("/popular", authMiddleware, ArticleController.getPopularArticles);
-
-// 获取分类下文章
-router.get(
-  "/category/:categoryId",
-  authMiddleware,
-  validate([
-    param("categoryId").isInt({ min: 1 }).withMessage("分类 ID 必须是正整数"),
-    ...paginationValidator,
-  ]),
-  ArticleController.getArticlesByCategory
-);
-
 // 获取用户文章列表
 router.get(
   "/user/:userId",
@@ -57,7 +45,7 @@ router.get(
     param("userId").isInt({ min: 1 }).withMessage("用户 ID 必须是正整数"),
     ...paginationValidator,
   ]),
-  ArticleController.getUserArticles
+  ArticleController.getUserArticles,
 );
 
 // ===== 需要认证的接口 =====
@@ -67,7 +55,7 @@ router.post(
   "/",
   strictAuthMiddleware, // 使用严格认证
   validate(articleCreateValidator),
-  ArticleController.createArticle
+  ArticleController.createArticle,
 );
 
 // ===== 管理员接口 =====
@@ -76,7 +64,7 @@ router.get(
   "/stats/all",
   strictAuthMiddleware, // 使用严格认证
   adminMiddleware, // 确保只有管理员可以访问
-  ArticleController.getArticleStats
+  ArticleController.getArticleStats,
 );
 
 // 具体操作路由（必须放在通用:id路由之前）
@@ -84,7 +72,7 @@ router.get(
 router.put(
   "/:id/views",
   validate(articleIdValidator),
-  ArticleController.incrementViews
+  ArticleController.incrementViews,
 );
 
 // 为文章设置标签
@@ -92,7 +80,7 @@ router.put(
   "/:id/tags",
   strictAuthMiddleware, // 使用严格认证
   validate([...articleIdValidator, ...articleTagValidator]),
-  ArticleController.setArticleTags
+  ArticleController.setArticleTags,
 );
 
 // 完全清除文章标签
@@ -100,7 +88,7 @@ router.delete(
   "/:id/tags",
   strictAuthMiddleware, // 使用严格认证
   validate(articleIdValidator),
-  ArticleController.clearArticleTags
+  ArticleController.clearArticleTags,
 );
 
 // 置顶/取消置顶文章
@@ -109,7 +97,7 @@ router.put(
   strictAuthMiddleware, // 使用严格认证
   adminMiddleware,
   validate(articleIdValidator),
-  ArticleController.toggleTopStatus
+  ArticleController.toggleTopStatus,
 );
 
 // 通用:id路由（放在最后）
@@ -121,7 +109,7 @@ router.put(
   "/:id",
   strictAuthMiddleware, // 使用严格认证
   validate([...articleIdValidator, ...articleUpdateValidator]),
-  ArticleController.updateArticle
+  ArticleController.updateArticle,
 );
 
 // 删除文章
@@ -129,7 +117,7 @@ router.delete(
   "/:id",
   strictAuthMiddleware, // 使用严格认证
   validate(articleIdValidator),
-  ArticleController.deleteArticle
+  ArticleController.deleteArticle,
 );
 
 module.exports = router;
