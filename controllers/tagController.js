@@ -27,20 +27,38 @@ class TagController {
    * 获取标签列表
    */
   getTags = asyncHandler(async (req, res, next) => {
-    const { page = 1, pageSize = 10 } = req.query;
+    const { page, pageSize } = req.query;
 
-    const result = await tagService.getTags(parseInt(page), parseInt(pageSize));
+    // 转换为整数，如果未传则保持 null
+    const pageNum = page ? parseInt(page) : null;
+    const pageSizeNum = pageSize ? parseInt(pageSize) : null;
 
-    successResponse(
-      res,
-      {
-        total: result.total,
-        page: parseInt(page),
-        pageSize: parseInt(pageSize),
-        tags: result.tags,
-      },
-      "获取成功",
-    );
+    const result = await tagService.getTags(pageNum, pageSizeNum);
+
+    // 根据是否分页返回不同的响应格式
+    if (pageNum === null || pageSizeNum === null) {
+      // 不分页，直接返回数组
+      successResponse(
+        res,
+        {
+          total: result.total,
+          tags: result.tags,
+        },
+        "获取成功",
+      );
+    } else {
+      // 分页返回
+      successResponse(
+        res,
+        {
+          total: result.total,
+          page: pageNum,
+          pageSize: pageSizeNum,
+          tags: result.tags,
+        },
+        "获取成功",
+      );
+    }
   });
 
   /**

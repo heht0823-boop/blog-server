@@ -81,11 +81,19 @@ class TagService {
     }
   }
   /**
-   * 获取标签列表（分页）
+   * 获取标签列表（分页可选）
    */
-  async getTags(page = 1, pageSize = 10) {
-    const offset = (page - 1) * pageSize;
+  async getTags(page = null, pageSize = null) {
+    // 如果不传分页参数，返回所有数据
+    if (page === null || pageSize === null) {
+      const [tags] = await pool.query(
+        "SELECT * FROM tags ORDER BY create_time DESC",
+      );
+      return { total: tags.length, tags };
+    }
 
+    // 传了分页参数，按分页返回
+    const offset = (page - 1) * pageSize;
     const [tags] = await pool.query(
       "SELECT * FROM tags ORDER BY create_time DESC LIMIT ? OFFSET ?",
       [pageSize, offset],
@@ -98,7 +106,6 @@ class TagService {
 
     return { total, tags };
   }
-
   /**
    * 获取单个标签详情
    */

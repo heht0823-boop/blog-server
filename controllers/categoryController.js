@@ -26,23 +26,38 @@ class CategoryController {
    * 获取分类列表
    */
   getCategories = asyncHandler(async (req, res, next) => {
-    const { page = 1, pageSize = 10 } = req.query;
+    const { page, pageSize } = req.query;
 
-    const result = await categoryService.getCategories(
-      parseInt(page),
-      parseInt(pageSize),
-    );
+    // 转换为整数，如果未传则保持 null
+    const pageNum = page ? parseInt(page) : null;
+    const pageSizeNum = pageSize ? parseInt(pageSize) : null;
 
-    successResponse(
-      res,
-      {
-        total: result.total,
-        page: parseInt(page),
-        pageSize: parseInt(pageSize),
-        categories: result.categories,
-      },
-      "获取成功",
-    );
+    const result = await categoryService.getCategories(pageNum, pageSizeNum);
+
+    // 根据是否分页返回不同的响应格式
+    if (pageNum === null || pageSizeNum === null) {
+      // 不分页，直接返回数组
+      successResponse(
+        res,
+        {
+          total: result.total,
+          categories: result.categories,
+        },
+        "获取成功",
+      );
+    } else {
+      // 分页返回
+      successResponse(
+        res,
+        {
+          total: result.total,
+          page: pageNum,
+          pageSize: pageSizeNum,
+          categories: result.categories,
+        },
+        "获取成功",
+      );
+    }
   });
 
   /**

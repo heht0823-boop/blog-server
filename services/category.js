@@ -84,11 +84,19 @@ class CategoryService {
     }
   }
   /**
-   * 获取分类列表（分页）
+   * 获取分类列表（分页可选）
    */
-  async getCategories(page = 1, pageSize = 10) {
-    const offset = (page - 1) * pageSize;
+  async getCategories(page = null, pageSize = null) {
+    // 如果不传分页参数，返回所有数据
+    if (page === null || pageSize === null) {
+      const [categories] = await pool.query(
+        "SELECT * FROM categories ORDER BY sort DESC, create_time DESC",
+      );
+      return { total: categories.length, categories };
+    }
 
+    // 传了分页参数，按分页返回
+    const offset = (page - 1) * pageSize;
     const [categories] = await pool.query(
       "SELECT * FROM categories ORDER BY sort DESC, create_time DESC LIMIT ? OFFSET ?",
       [pageSize, offset],
