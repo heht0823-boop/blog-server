@@ -104,14 +104,6 @@ class TagController {
       return errorResponse(res, null, err.message, 400);
     }
   });
-
-  /**
-   * 获取所有标签（不分页）
-   */
-  getAllTags = asyncHandler(async (req, res, next) => {
-    const tags = await tagService.getAllTags();
-    successResponse(res, tags, "获取成功");
-  });
 }
 
 module.exports = new TagController();

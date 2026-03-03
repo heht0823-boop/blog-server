@@ -176,16 +176,6 @@ class CategoryService {
     ]);
     return result.affectedRows > 0;
   }
-
-  /**
-   * 获取所有分类（不分页）
-   */
-  async getAllCategories() {
-    const [categories] = await pool.query(
-      "SELECT * FROM categories ORDER BY sort DESC, create_time DESC",
-    );
-    return categories;
-  }
 }
 
 module.exports = new CategoryService();

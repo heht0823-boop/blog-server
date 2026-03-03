@@ -165,16 +165,6 @@ class TagService {
     const [result] = await pool.query("DELETE FROM tags WHERE id = ?", [tagId]);
     return result.affectedRows > 0;
   }
-
-  /**
-   * 获取所有标签（不分页）
-   */
-  async getAllTags() {
-    const [tags] = await pool.query(
-      "SELECT * FROM tags ORDER BY create_time DESC",
-    );
-    return tags;
-  }
 }
 
 module.exports = new TagService();

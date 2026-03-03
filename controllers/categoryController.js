@@ -81,40 +81,13 @@ class CategoryController {
 
     successResponse(res, null, "分类更新成功");
   });
-
   /**
    * 删除分类
    */
-  async deleteCategory(categoryId) {
-    // 检查是否有文章属于这个分类
-    const [articleCount] = await pool.query(
-      "SELECT COUNT(*) as count FROM articles WHERE category_id = ?",
-      [categoryId],
-    );
-
-    if (articleCount[0].count > 0) {
-      throw new Error("该分类下还有文章，无法删除");
-    }
-
-    const [result] = await pool.query("DELETE FROM categories WHERE id = ?", [
-      categoryId,
-    ]);
-    return result.affectedRows > 0;
-  }
-
-  async getAllCategories() {
-    const [categories] = await pool.query(
-      "SELECT * FROM categories ORDER BY sort DESC, create_time DESC",
-    );
-    return categories;
-  }
+  deleteCategory = asyncHandler(async (req, res, next) => {
+    const { id } = req.params;
+    const deleted = await categoryService.deleteCategory(id);
+    successResponse(res, null, "删除成功");
+  });
 }
-/**
- * 获取所有分类（不分页）
- */
-getAllCategories = asyncHandler(async (req, res, next) => {
-  const categories = await categoryService.getAllCategories();
-  successResponse(res, categories, "获取成功");
-});
-
 module.exports = new CategoryController();

@@ -19,17 +19,14 @@ const { adminMiddleware } = require("../middleware/permission");
 router.get(
   "/",
   validate(categoryQueryValidator),
-  CategoryController.getCategories
+  CategoryController.getCategories,
 );
-
-// 获取所有分类
-router.get("/all", CategoryController.getAllCategories);
 
 // 获取单个分类
 router.get(
   "/:id",
   validate(categoryIdValidator),
-  CategoryController.getCategory
+  CategoryController.getCategory,
 );
 
 // ===== 需要认证的接口 =====
@@ -40,7 +37,7 @@ router.post(
   authMiddleware,
   adminMiddleware,
   categoryCreateValidator, // 直接使用函数而不是 validate 包装
-  CategoryController.createCategory
+  CategoryController.createCategory,
 );
 
 // 更新分类（需要管理员权限）
@@ -49,7 +46,7 @@ router.put(
   authMiddleware,
   adminMiddleware,
   validate([...categoryIdValidator, ...categoryUpdateValidator]),
-  CategoryController.updateCategory
+  CategoryController.updateCategory,
 );
 
 // 删除分类（需要管理员权限）
@@ -58,7 +55,7 @@ router.delete(
   authMiddleware,
   adminMiddleware,
   validate(categoryIdValidator),
-  CategoryController.deleteCategory
+  CategoryController.deleteCategory,
 );
 
 module.exports = router;
