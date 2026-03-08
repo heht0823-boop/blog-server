@@ -34,6 +34,19 @@ router.get(
   validate([...paginationValidator, ...articleSearchValidator]),
   ArticleController.searchArticles,
 );
+// 获取置顶文章列表（用于轮播图）
+router.get(
+  "/top",
+  authMiddleware,
+  validate([
+    query("limit")
+      .optional()
+      .isInt({ min: 1, max: 50 })
+      .withMessage("数量限制必须在 1-50 之间")
+      .toInt(),
+  ]),
+  ArticleController.getTopArticles,
+);
 
 // 获取热门文章
 router.get("/popular", authMiddleware, ArticleController.getPopularArticles);

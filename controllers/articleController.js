@@ -412,6 +412,25 @@ class ArticleController {
       next(err);
     }
   });
+  /**
+   * 获取置顶文章列表
+   */
+  getTopArticles = asyncHandler(async (req, res, next) => {
+    try {
+      const { limit = 10 } = req.query;
+      const isAdmin = req.user && req.user.role === 1;
+      const userRole = isAdmin ? "admin" : "user";
+
+      const topArticles = await articleService.getTopArticles(
+        parseInt(limit),
+        userRole,
+      );
+
+      successResponse(res, topArticles, "获取成功");
+    } catch (err) {
+      next(err);
+    }
+  });
 
   /**
    * 获取热门文章

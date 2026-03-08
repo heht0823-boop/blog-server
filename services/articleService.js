@@ -387,6 +387,29 @@ class ArticleService {
     }
   }
   /**
+   * 获取置顶文章列表
+   */
+  async getTopArticles(limit = 10, userRole = "user") {
+    try {
+      let query = `SELECT * FROM articles WHERE is_top = 1`;
+      const params = [];
+
+      // 权限控制：非管理员只能获取已发布的置顶文章
+      if (userRole !== "admin") {
+        query += " AND status = 1";
+      }
+
+      query += " ORDER BY is_top DESC, create_time DESC LIMIT ?";
+      params.push(limit);
+
+      const [articles] = await pool.query(query, params);
+
+      return articles;
+    } catch (err) {
+      throw err;
+    }
+  }
+  /**
    * 增加文章浏览数
    */
   async incrementViews(articleId) {
