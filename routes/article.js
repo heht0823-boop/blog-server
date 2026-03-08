@@ -1,7 +1,7 @@
 // routes/article.js
 const express = require("express");
 const router = express.Router();
-const { param } = require("express-validator");
+const { param, query } = require("express-validator"); // 添加 query 导入
 
 const ArticleController = require("../controllers/articleController");
 const { validate } = require("../middleware/validator");
@@ -34,6 +34,7 @@ router.get(
   validate([...paginationValidator, ...articleSearchValidator]),
   ArticleController.searchArticles,
 );
+
 // 获取置顶文章列表（用于轮播图）
 router.get(
   "/top",
@@ -50,6 +51,7 @@ router.get(
 
 // 获取热门文章
 router.get("/popular", authMiddleware, ArticleController.getPopularArticles);
+
 // 获取用户文章列表
 router.get(
   "/user/:userId",
@@ -66,7 +68,7 @@ router.get(
 // 创建文章
 router.post(
   "/",
-  strictAuthMiddleware, // 使用严格认证
+  strictAuthMiddleware,
   validate(articleCreateValidator),
   ArticleController.createArticle,
 );
@@ -75,8 +77,8 @@ router.post(
 // 获取文章统计
 router.get(
   "/stats/all",
-  strictAuthMiddleware, // 使用严格认证
-  adminMiddleware, // 确保只有管理员可以访问
+  strictAuthMiddleware,
+  adminMiddleware,
   ArticleController.getArticleStats,
 );
 
@@ -91,7 +93,7 @@ router.put(
 // 为文章设置标签
 router.put(
   "/:id/tags",
-  strictAuthMiddleware, // 使用严格认证
+  strictAuthMiddleware,
   validate([...articleIdValidator, ...articleTagValidator]),
   ArticleController.setArticleTags,
 );
@@ -99,7 +101,7 @@ router.put(
 // 完全清除文章标签
 router.delete(
   "/:id/tags",
-  strictAuthMiddleware, // 使用严格认证
+  strictAuthMiddleware,
   validate(articleIdValidator),
   ArticleController.clearArticleTags,
 );
@@ -107,7 +109,7 @@ router.delete(
 // 置顶/取消置顶文章
 router.put(
   "/:id/top",
-  strictAuthMiddleware, // 使用严格认证
+  strictAuthMiddleware,
   adminMiddleware,
   validate(articleIdValidator),
   ArticleController.toggleTopStatus,
@@ -120,7 +122,7 @@ router.get("/:id", validate(articleIdValidator), ArticleController.getArticle);
 // 更新文章
 router.put(
   "/:id",
-  strictAuthMiddleware, // 使用严格认证
+  strictAuthMiddleware,
   validate([...articleIdValidator, ...articleUpdateValidator]),
   ArticleController.updateArticle,
 );
@@ -128,7 +130,7 @@ router.put(
 // 删除文章
 router.delete(
   "/:id",
-  strictAuthMiddleware, // 使用严格认证
+  strictAuthMiddleware,
   validate(articleIdValidator),
   ArticleController.deleteArticle,
 );
