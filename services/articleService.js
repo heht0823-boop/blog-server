@@ -414,12 +414,35 @@ class ArticleService {
    */
   async incrementViews(articleId) {
     try {
-      const [result] = await pool.query(
-        "UPDATE articles SET read_count = read_count + 1 WHERE id = ?",
-        [articleId],
-      );
+      // 使用事务确保数据一致性
+      const connection = await pool.getConnection();
+      try {
+        await connection.beginTransaction();
 
-      return result.affectedRows > 0;
+        // 检查文章是否存在
+        const [articleRows] = await connection.execute(
+          "SELECT id FROM articles WHERE id = ?",
+          [articleId],
+        );
+
+        if (articleRows.length === 0) {
+          throw new Error("文章不存在");
+        }
+
+        // 增加浏览数
+        const [result] = await connection.execute(
+          "UPDATE articles SET read_count = read_count + 1 WHERE id = ?",
+          [articleId],
+        );
+
+        await connection.commit();
+        return result.affectedRows > 0;
+      } catch (err) {
+        await connection.rollback();
+        throw err;
+      } finally {
+        connection.release();
+      }
     } catch (err) {
       throw err;
     }
