@@ -1,7 +1,7 @@
 // routes/article.js
 const express = require("express");
 const router = express.Router();
-const { param, query } = require("express-validator"); // 添加 query 导入
+const { param, query } = require("express-validator");
 
 const ArticleController = require("../controllers/articleController");
 const { validate } = require("../middleware/validator");
@@ -18,6 +18,13 @@ const { authMiddleware, strictAuthMiddleware } = require("../middleware/auth");
 const { adminMiddleware } = require("../middleware/permission");
 
 // ===== 公开接口 =====
+
+// 增加文章浏览数（前端访问文章时自动调用）
+router.put(
+  "/:id/views",
+  validate(articleIdValidator),
+  ArticleController.incrementViews,
+);
 
 // 获取文章列表
 router.get(
@@ -82,14 +89,6 @@ router.get(
   ArticleController.getArticleStats,
 );
 
-// 具体操作路由（必须放在通用:id路由之前）
-// 增加文章浏览数
-router.put(
-  "/:id/views",
-  validate(articleIdValidator),
-  ArticleController.incrementViews,
-);
-
 // 为文章设置标签
 router.put(
   "/:id/tags",
@@ -115,7 +114,7 @@ router.put(
   ArticleController.toggleTopStatus,
 );
 
-// 通用:id路由（放在最后）
+// 通用:id 路由（放在最后）
 // 获取文章详情
 router.get("/:id", validate(articleIdValidator), ArticleController.getArticle);
 

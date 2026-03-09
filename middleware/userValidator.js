@@ -1,4 +1,3 @@
-// middleware/userValidator.js
 const { body, param, query } = require("express-validator");
 const userService = require("../services/userService");
 
@@ -128,30 +127,13 @@ const paginationValidator = [
     .toInt(),
 ];
 
-// ===== 角色验证 =====
-const roleValidator = [
-  query("role")
-    .optional()
-    .isInt({ min: 0, max: 1 })
-    .withMessage("角色值必须在 0-1 之间")
-    .toInt(),
-];
 // ===== 搜索关键字验证 =====
 const searchValidator = [
   query("search")
     .optional()
     .trim()
     .isLength({ min: 1, max: 50 })
-    .withMessage("搜索关键字长度应在1-50个字符之间"),
-];
-// ===== 角色更新验证 =====
-const roleUpdateValidator = [
-  body("role")
-    .exists()
-    .withMessage("角色字段不能为空")
-    .isInt({ min: 0, max: 1 })
-    .withMessage("角色值必须是 0（普通用户）或 1（管理员）")
-    .toInt(),
+    .withMessage("搜索关键字长度应在 1-50 个字符之间"),
 ];
 
 module.exports = {
@@ -161,7 +143,5 @@ module.exports = {
   updateUserValidator,
   userIdValidator,
   paginationValidator,
-  roleValidator,
   searchValidator,
-  roleUpdateValidator,
 };

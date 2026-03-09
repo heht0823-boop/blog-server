@@ -185,17 +185,6 @@ class UserService {
     return { total, users };
   }
   /**
-   * 更新用户角色（支持升级/降级）
-   */
-  async updateUserRole(userId, role) {
-    const [result] = await pool.query(
-      "UPDATE users SET role = ? WHERE id = ? AND role != ?",
-      [role, userId, role],
-    );
-
-    return result.affectedRows > 0;
-  }
-  /**
    * 删除用户
    */
   async deleteUser(userId) {

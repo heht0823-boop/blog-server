@@ -24,27 +24,6 @@ const requireRole = (requiredRole) => {
 
 const adminMiddleware = requireRole(ROLE_LEVELS.ADMIN);
 
-const selfOrAdminMiddleware = (userIdParam = "userId") => {
-  return (req, res, next) => {
-    if (!req.user) {
-      throw new AuthenticationError("未认证");
-    }
-
-    const targetUserId = parseInt(req.params[userIdParam]);
-
-    if (isNaN(targetUserId) || targetUserId <= 0) {
-      const error = new Error("无效的用户 ID");
-      error.statusCode = 400;
-      throw error;
-    }
-
-    if (req.user.id !== targetUserId && req.user.role < ROLE_LEVELS.ADMIN) {
-      throw new AuthorizationError("无权访问他人的数据");
-    }
-
-    next();
-  };
-};
 const loggedInUserAccessMiddleware = (req, res, next) => {
   if (!req.user) {
     throw new AuthenticationError("未认证");
@@ -61,10 +40,10 @@ const loggedInUserAccessMiddleware = (req, res, next) => {
   // 允许任意已登录用户访问
   next();
 };
+
 module.exports = {
   ROLE_LEVELS,
   requireRole,
   adminMiddleware,
-  selfOrAdminMiddleware,
   loggedInUserAccessMiddleware,
 };

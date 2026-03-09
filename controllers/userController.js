@@ -280,31 +280,6 @@ class UserController {
     successResponse(res, null, "删除成功");
   });
   /**
-   * 更新用户角色（支持升级/降级）
-   */
-  updateUserRole = asyncHandler(async (req, res, next) => {
-    const { id } = req.params;
-    const { role } = req.body;
-
-    // 防止用户修改自己的角色
-    if (parseInt(id) === req.user.id) {
-      return errorResponse(res, null, "不能修改自己的角色", 400);
-    }
-
-    try {
-      // 调用服务层统一方法
-      const updated = await userService.updateUserRole(id, role);
-
-      if (!updated) {
-        return errorResponse(res, null, "用户不存在或角色未发生变化", 404);
-      }
-
-      successResponse(res, null, "角色更新成功");
-    } catch (err) {
-      next(err); // 抛给全局错误处理器
-    }
-  });
-  /**
    * 上传头像
    */
   uploadAvatar = asyncHandler(async (req, res, next) => {

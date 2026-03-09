@@ -273,16 +273,14 @@ class ArticleController {
       const { userId } = req.params;
       const { page = 1, pageSize = 10 } = req.query;
 
-      // 获取当前用户信息（可能为null）
       const currentUserId = req.user ? req.user.id : null;
-      const isAdmin = req.user && req.user.role === 1;
-      const currentUserRole = isAdmin ? "admin" : "user";
+      const userRole = req.user && req.user.role === 1 ? "admin" : "user";
 
       const result = await articleService.getUserArticles(
         parseInt(userId),
         parseInt(page),
         parseInt(pageSize),
-        currentUserRole,
+        userRole,
         currentUserId,
       );
 
@@ -449,9 +447,8 @@ class ArticleController {
       next(err);
     }
   });
-
   /**
-   * 增加文章浏览数
+   * 增加文章浏览数（公开接口，前端访问时自动调用）
    */
   incrementViews = asyncHandler(async (req, res, next) => {
     try {
@@ -462,7 +459,8 @@ class ArticleController {
         return errorResponse(res, null, "文章不存在", 404);
       }
 
-      successResponse(res, null, "浏览数增加成功");
+      // 不返回敏感信息，只返回成功状态
+      successResponse(res, null, "浏览数已更新");
     } catch (err) {
       next(err);
     }
