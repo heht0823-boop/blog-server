@@ -61,7 +61,7 @@ class CommentService {
    * 回复评论（子评论，parent_id>0）
    */
   async replyToComment(parentCommentId, replyData) {
-    const { content, articleId, userId } = replyData;
+    const { content, userId } = replyData;
 
     if (!parentCommentId || parentCommentId <= 0) {
       throw new Error("父评论 ID 必须大于 0");
@@ -71,6 +71,20 @@ class CommentService {
     try {
       await connection.beginTransaction();
 
+      // 1. 先查找父评论（不强制校验 articleId，防止前端传错）
+      const [commentRows] = await connection.execute(
+        "SELECT id, article_id FROM comments WHERE id = ?",
+        [Number(parentCommentId)],
+      );
+
+      if (commentRows.length === 0) {
+        throw new NotFoundError("被回复的评论不存在");
+      }
+
+      const parentComment = commentRows[0];
+      const articleId = parentComment.article_id; // 使用父评论的文章ID，确保一致性
+
+      // 2. 检查文章是否存在
       const [articleRows] = await connection.execute(
         "SELECT id FROM articles WHERE id = ?",
         [Number(articleId)],
@@ -80,15 +94,7 @@ class CommentService {
         throw new NotFoundError("文章不存在");
       }
 
-      const [commentRows] = await connection.execute(
-        "SELECT id FROM comments WHERE id = ? AND article_id = ?",
-        [Number(parentCommentId), Number(articleId)],
-      );
-
-      if (commentRows.length === 0) {
-        throw new NotFoundError("被回复的评论不存在或不属于该文章");
-      }
-
+      // 3. 插入回复
       const [result] = await connection.execute(
         "INSERT INTO comments (content, article_id, user_id, parent_id) VALUES (?, ?, ?, ?)",
         [content, Number(articleId), Number(userId), Number(parentCommentId)],
@@ -149,7 +155,8 @@ class CommentService {
     }
 
     // ✅ 获取分页后的根评论
-    const [rootCommentRows] = await pool.execute(
+    // 使用 query 而不是 execute，以避免在某些 mysql2 版本中 prepared statements 不支持 LIMIT ? OFFSET ? 的问题
+    const [rootCommentRows] = await pool.query(
       `SELECT c.*, u.username, u.nickname, u.avatar 
        FROM comments c 
        JOIN users u ON c.user_id = u.id 
