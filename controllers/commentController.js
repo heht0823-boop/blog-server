@@ -35,9 +35,10 @@ class CommentController {
     const result = await commentService.getCommentsByArticleId(
       articleId,
       parseInt(page),
-      parseInt(pageSize)
+      parseInt(pageSize),
     );
 
+    // 只返回 tree 和 pagination，移除 list
     successResponse(res, result, "获取评论成功");
   });
   /**

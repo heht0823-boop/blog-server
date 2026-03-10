@@ -486,6 +486,225 @@ class ArticleController {
       next(err);
     }
   });
+  /**
+   * 点赞文章
+   */
+  likeArticle = asyncHandler(async (req, res, next) => {
+    try {
+      if (!req.user) {
+        return errorResponse(res, null, "用户未认证", 401);
+      }
+
+      const { id } = req.params;
+      const userId = req.user.id;
+
+      await articleService.likeArticle(id, userId);
+      successResponse(res, null, "点赞成功");
+    } catch (err) {
+      if (err.message === "已点赞过该文章") {
+        return errorResponse(res, null, "已点赞过该文章", 400);
+      }
+      if (err.message === "文章不存在") {
+        return errorResponse(res, null, "文章不存在", 404);
+      }
+      next(err);
+    }
+  });
+
+  /**
+   * 取消点赞
+   */
+  unlikeArticle = asyncHandler(async (req, res, next) => {
+    try {
+      if (!req.user) {
+        return errorResponse(res, null, "用户未认证", 401);
+      }
+
+      const { id } = req.params;
+      const userId = req.user.id;
+
+      const cancelled = await articleService.unlikeArticle(id, userId);
+
+      if (!cancelled) {
+        return errorResponse(res, null, "未找到点赞记录", 404);
+      }
+
+      successResponse(res, null, "取消点赞成功");
+    } catch (err) {
+      if (err.message === "文章不存在") {
+        return errorResponse(res, null, "文章不存在", 404);
+      }
+      next(err);
+    }
+  });
+
+  /**
+   * 收藏文章
+   */
+  collectArticle = asyncHandler(async (req, res, next) => {
+    try {
+      if (!req.user) {
+        return errorResponse(res, null, "用户未认证", 401);
+      }
+
+      const { id } = req.params;
+      const userId = req.user.id;
+
+      await articleService.collectArticle(id, userId);
+      successResponse(res, null, "收藏成功");
+    } catch (err) {
+      if (err.message === "已收藏过该文章") {
+        return errorResponse(res, null, "已收藏过该文章", 400);
+      }
+      if (err.message === "文章不存在") {
+        return errorResponse(res, null, "文章不存在", 404);
+      }
+      next(err);
+    }
+  });
+
+  /**
+   * 取消收藏
+   */
+  uncollectArticle = asyncHandler(async (req, res, next) => {
+    try {
+      if (!req.user) {
+        return errorResponse(res, null, "用户未认证", 401);
+      }
+
+      const { id } = req.params;
+      const userId = req.user.id;
+
+      const cancelled = await articleService.uncollectArticle(id, userId);
+
+      if (!cancelled) {
+        return errorResponse(res, null, "未找到收藏记录", 404);
+      }
+
+      successResponse(res, null, "取消收藏成功");
+    } catch (err) {
+      if (err.message === "文章不存在") {
+        return errorResponse(res, null, "文章不存在", 404);
+      }
+      next(err);
+    }
+  });
+
+  /**
+   * 获取文章详情（增强版，包含点赞收藏状态）
+   */
+  // articleController.js
+
+  /**
+   * 获取文章详情（增强版，包含点赞收藏状态）
+   */
+  getArticleDetail = asyncHandler(async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      const isAdmin = req.user.role === 1; // ✅ 无需检查 req.user 是否存在
+      const userRole = isAdmin ? "admin" : "user";
+      const userId = req.user.id; // ✅ 直接使用
+
+      const article = await articleService.getArticleById(id, userRole);
+
+      if (!article) {
+        return errorResponse(res, null, "文章不存在", 404);
+      }
+
+      // 获取当前用户的点赞和收藏状态
+      const likeStatus = await articleService.checkUserLikeStatus(id, userId);
+      const collectStatus = await articleService.checkUserCollectStatus(
+        id,
+        userId,
+      );
+
+      successResponse(
+        res,
+        {
+          ...article,
+          isLiked: likeStatus.isLiked,
+          isCollected: collectStatus.isCollected,
+        },
+        "获取成功",
+      );
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /**
+   * 获取用户点赞的文章列表
+   */
+  getUserLikedArticles = asyncHandler(async (req, res, next) => {
+    try {
+      const { userId } = req.params;
+      const { page = 1, pageSize = 10 } = req.query;
+
+      const currentUserId = req.user.id; // ✅ 无需检查是否存在
+
+      // 权限检查：只能查看自己的点赞列表，或管理员可查看所有
+      if (req.user.role !== 1 && parseInt(userId) !== currentUserId) {
+        return errorResponse(res, null, "权限不足", 403);
+      }
+
+      const result = await articleService.getUserLikedArticles(
+        parseInt(userId),
+        parseInt(page),
+        parseInt(pageSize),
+        currentUserId,
+      );
+
+      successResponse(
+        res,
+        {
+          total: result.total,
+          page: parseInt(page),
+          pageSize: parseInt(pageSize),
+          articles: result.articles,
+        },
+        "获取成功",
+      );
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /**
+   * 获取用户收藏的文章列表
+   */
+  getUserCollectedArticles = asyncHandler(async (req, res, next) => {
+    try {
+      const { userId } = req.params;
+      const { page = 1, pageSize = 10 } = req.query;
+
+      const currentUserId = req.user.id; // ✅ 无需检查是否存在
+
+      // 权限检查：只能查看自己的收藏列表，或管理员可查看所有
+      if (req.user.role !== 1 && parseInt(userId) !== currentUserId) {
+        return errorResponse(res, null, "权限不足", 403);
+      }
+
+      const result = await articleService.getUserCollectedArticles(
+        parseInt(userId),
+        parseInt(page),
+        parseInt(pageSize),
+        currentUserId,
+      );
+
+      successResponse(
+        res,
+        {
+          total: result.total,
+          page: parseInt(page),
+          pageSize: parseInt(pageSize),
+          articles: result.articles,
+        },
+        "获取成功",
+      );
+    } catch (err) {
+      next(err);
+    }
+  });
 }
 
 module.exports = new ArticleController();

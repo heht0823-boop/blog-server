@@ -116,7 +116,12 @@ router.put(
 
 // 通用:id 路由（放在最后）
 // 获取文章详情
-router.get("/:id", validate(articleIdValidator), ArticleController.getArticle);
+router.get(
+  "/:id",
+  strictAuthMiddleware, // ✅ 改为严格认证
+  validate(articleIdValidator),
+  ArticleController.getArticleDetail,
+);
 
 // 更新文章
 router.put(
@@ -132,6 +137,65 @@ router.delete(
   strictAuthMiddleware,
   validate(articleIdValidator),
   ArticleController.deleteArticle,
+);
+// ===== 点赞相关接口 =====
+
+// 点赞文章
+router.post(
+  "/:id/like",
+  strictAuthMiddleware,
+  validate(articleIdValidator),
+  ArticleController.likeArticle,
+);
+
+// 取消点赞
+router.delete(
+  "/:id/like",
+  strictAuthMiddleware,
+  validate(articleIdValidator),
+  ArticleController.unlikeArticle,
+);
+
+// ===== 收藏相关接口 =====
+
+// 收藏文章
+router.post(
+  "/:id/collect",
+  strictAuthMiddleware,
+  validate(articleIdValidator),
+  ArticleController.collectArticle,
+);
+
+// 取消收藏
+router.delete(
+  "/:id/collect",
+  strictAuthMiddleware,
+  validate(articleIdValidator),
+  ArticleController.uncollectArticle,
+);
+
+// ===== 用户点赞/收藏列表 =====
+
+// 获取用户点赞的文章
+router.get(
+  "/user/:userId/likes",
+  strictAuthMiddleware, // ✅ 改为严格认证
+  validate([
+    param("userId").isInt({ min: 1 }).withMessage("用户 ID 必须是正整数"),
+    ...paginationValidator,
+  ]),
+  ArticleController.getUserLikedArticles,
+);
+
+// 获取用户收藏的文章
+router.get(
+  "/user/:userId/collections",
+  strictAuthMiddleware, // ✅ 改为严格认证
+  validate([
+    param("userId").isInt({ min: 1 }).withMessage("用户 ID 必须是正整数"),
+    ...paginationValidator,
+  ]),
+  ArticleController.getUserCollectedArticles,
 );
 
 module.exports = router;

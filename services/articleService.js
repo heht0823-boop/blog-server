@@ -603,6 +603,247 @@ class ArticleService {
       throw err;
     }
   }
+  /**
+   * 点赞文章
+   */
+  async likeArticle(articleId, userId) {
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+
+      // 检查文章是否存在
+      const [articleRows] = await connection.execute(
+        "SELECT id FROM articles WHERE id = ?",
+        [articleId],
+      );
+
+      if (articleRows.length === 0) {
+        throw new Error("文章不存在");
+      }
+
+      // 插入点赞记录（唯一索引会防止重复点赞）
+      const [result] = await connection.execute(
+        "INSERT INTO article_likes (article_id, user_id) VALUES (?, ?)",
+        [articleId, userId],
+      );
+
+      // 增加文章点赞数
+      await connection.execute(
+        "UPDATE articles SET like_count = like_count + 1 WHERE id = ?",
+        [articleId],
+      );
+
+      await connection.commit();
+      return true;
+    } catch (err) {
+      await connection.rollback();
+      if (err.code === "ER_DUP_ENTRY") {
+        throw new Error("已点赞过该文章");
+      }
+      throw err;
+    } finally {
+      connection.release();
+    }
+  }
+
+  /**
+   * 取消点赞
+   */
+  async unlikeArticle(articleId, userId) {
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+
+      // 删除点赞记录
+      const [result] = await connection.execute(
+        "DELETE FROM article_likes WHERE article_id = ? AND user_id = ?",
+        [articleId, userId],
+      );
+
+      if (result.affectedRows > 0) {
+        // 减少文章点赞数
+        await connection.execute(
+          "UPDATE articles SET like_count = GREATEST(like_count - 1, 0) WHERE id = ?",
+          [articleId],
+        );
+      }
+
+      await connection.commit();
+      return result.affectedRows > 0;
+    } catch (err) {
+      await connection.rollback();
+      throw err;
+    } finally {
+      connection.release();
+    }
+  }
+
+  /**
+   * 收藏文章
+   */
+  async collectArticle(articleId, userId) {
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+
+      // 检查文章是否存在
+      const [articleRows] = await connection.execute(
+        "SELECT id FROM articles WHERE id = ?",
+        [articleId],
+      );
+
+      if (articleRows.length === 0) {
+        throw new Error("文章不存在");
+      }
+
+      // 插入收藏记录（唯一索引会防止重复收藏）
+      const [result] = await connection.execute(
+        "INSERT INTO article_collections (article_id, user_id) VALUES (?, ?)",
+        [articleId, userId],
+      );
+
+      // 增加文章收藏数
+      await connection.execute(
+        "UPDATE articles SET collect_count = collect_count + 1 WHERE id = ?",
+        [articleId],
+      );
+
+      await connection.commit();
+      return true;
+    } catch (err) {
+      await connection.rollback();
+      if (err.code === "ER_DUP_ENTRY") {
+        throw new Error("已收藏过该文章");
+      }
+      throw err;
+    } finally {
+      connection.release();
+    }
+  }
+
+  /**
+   * 取消收藏
+   */
+  async uncollectArticle(articleId, userId) {
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+
+      // 删除收藏记录
+      const [result] = await connection.execute(
+        "DELETE FROM article_collections WHERE article_id = ? AND user_id = ?",
+        [articleId, userId],
+      );
+
+      if (result.affectedRows > 0) {
+        // 减少文章收藏数
+        await connection.execute(
+          "UPDATE articles SET collect_count = GREATEST(collect_count - 1, 0) WHERE id = ?",
+          [articleId],
+        );
+      }
+
+      await connection.commit();
+      return result.affectedRows > 0;
+    } catch (err) {
+      await connection.rollback();
+      throw err;
+    } finally {
+      connection.release();
+    }
+  }
+
+  /**
+   * 检查用户点赞状态
+   */
+  async checkUserLikeStatus(articleId, userId) {
+    if (!userId) return { isLiked: false };
+
+    const [rows] = await pool.query(
+      "SELECT id FROM article_likes WHERE article_id = ? AND user_id = ?",
+      [articleId, userId],
+    );
+
+    return { isLiked: rows.length > 0 };
+  }
+
+  /**
+   * 检查用户收藏状态
+   */
+  async checkUserCollectStatus(articleId, userId) {
+    if (!userId) return { isCollected: false };
+
+    const [rows] = await pool.query(
+      "SELECT id FROM article_collections WHERE article_id = ? AND user_id = ?",
+      [articleId, userId],
+    );
+
+    return { isCollected: rows.length > 0 };
+  }
+
+  /**
+   * 获取用户点赞的文章列表
+   */
+  async getUserLikedArticles(
+    userId,
+    page = 1,
+    pageSize = 10,
+    currentUserId = null,
+  ) {
+    const offset = (page - 1) * pageSize;
+
+    const [articles] = await pool.query(
+      `SELECT a.*, al.create_time as like_time
+     FROM articles a
+     INNER JOIN article_likes al ON a.id = al.article_id
+     WHERE al.user_id = ?
+     ORDER BY al.create_time DESC
+     LIMIT ? OFFSET ?`,
+      [userId, pageSize, offset],
+    );
+
+    const [countResult] = await pool.query(
+      "SELECT COUNT(*) as total FROM article_likes WHERE user_id = ?",
+      [userId],
+    );
+
+    return {
+      total: countResult[0].total,
+      articles,
+    };
+  }
+
+  /**
+   * 获取用户收藏的文章列表
+   */
+  async getUserCollectedArticles(
+    userId,
+    page = 1,
+    pageSize = 10,
+    currentUserId = null,
+  ) {
+    const offset = (page - 1) * pageSize;
+
+    const [articles] = await pool.query(
+      `SELECT a.*, ac.create_time as collect_time
+     FROM articles a
+     INNER JOIN article_collections ac ON a.id = ac.article_id
+     WHERE ac.user_id = ?
+     ORDER BY ac.create_time DESC
+     LIMIT ? OFFSET ?`,
+      [userId, pageSize, offset],
+    );
+
+    const [countResult] = await pool.query(
+      "SELECT COUNT(*) as total FROM article_collections WHERE user_id = ?",
+      [userId],
+    );
+
+    return {
+      total: countResult[0].total,
+      articles,
+    };
+  }
 }
 
 module.exports = new ArticleService();

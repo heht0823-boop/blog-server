@@ -22,7 +22,7 @@ class CommentService {
       // 检查文章是否存在
       const [articleRows] = await connection.execute(
         "SELECT id FROM articles WHERE id = ?",
-        [articleId]
+        [articleId],
       );
 
       if (articleRows.length === 0) {
@@ -33,7 +33,7 @@ class CommentService {
       if (parentId > 0) {
         const [parentRows] = await connection.execute(
           "SELECT id FROM comments WHERE id = ? AND article_id = ?",
-          [parentId, articleId]
+          [parentId, articleId],
         );
 
         if (parentRows.length === 0) {
@@ -44,7 +44,7 @@ class CommentService {
       // 插入评论
       const [result] = await connection.execute(
         "INSERT INTO comments (content, article_id, user_id, parent_id) VALUES (?, ?, ?, ?)",
-        [content, articleId, userId, parentId]
+        [content, articleId, userId, parentId],
       );
 
       // 获取插入的评论
@@ -53,7 +53,7 @@ class CommentService {
          FROM comments c 
          JOIN users u ON c.user_id = u.id 
          WHERE c.id = ?`,
-        [result.insertId]
+        [result.insertId],
       );
 
       await connection.commit();
@@ -77,7 +77,7 @@ class CommentService {
     // 检查文章是否存在
     const [articleRows] = await pool.execute(
       "SELECT id FROM articles WHERE id = ?",
-      [articleId]
+      [articleId],
     );
 
     if (articleRows.length === 0) {
@@ -89,17 +89,16 @@ class CommentService {
     const size = Math.min(100, Math.max(1, parseInt(pageSize) || 10));
     const offset = (pageNum - 1) * size;
 
-    // 获取评论总数
+    // 获取根评论总数（只统计 parent_id = 0 的评论）
     const [countRows] = await pool.execute(
-      "SELECT COUNT(*) as total FROM comments WHERE article_id = ?",
-      [articleId]
+      "SELECT COUNT(*) as total FROM comments WHERE article_id = ? AND parent_id = 0",
+      [articleId],
     );
     const total = countRows[0].total;
 
-    // 如果没有评论，直接返回空列表
+    // 如果没有评论，直接返回空树
     if (total === 0) {
       return {
-        list: [],
         tree: [],
         pagination: {
           page: pageNum,
@@ -110,42 +109,49 @@ class CommentService {
       };
     }
 
-    // 获取所有评论（按创建时间升序排列，确保父评论在子评论之前）
-    const query = `SELECT c.*, u.username, u.nickname, u.avatar,
-                      p.content as parent_content, pu.username as parent_username
-               FROM comments c
-               JOIN users u ON c.user_id = u.id
-               LEFT JOIN comments p ON c.parent_id = p.id
-               LEFT JOIN users pu ON p.user_id = pu.id
-               WHERE c.article_id = ?
-               ORDER BY c.create_time ASC`;
-
-    const [commentRows] = await pool.execute(query, [articleId]);
-
-    // 构建评论树
-    const tree = this.buildCommentTree(commentRows);
-
-    // 分页处理（只对根评论分页）
-    const rootComments = commentRows.filter(
-      (comment) => comment.parent_id === 0
+    // 获取分页后的根评论
+    const [rootCommentRows] = await pool.execute(
+      `SELECT c.*, u.username, u.nickname, u.avatar 
+     FROM comments c 
+     JOIN users u ON c.user_id = u.id 
+     WHERE c.article_id = ? AND c.parent_id = 0 
+     ORDER BY c.create_time ASC 
+     LIMIT ? OFFSET ?`,
+      [articleId, size, offset],
     );
-    const paginatedRootComments = rootComments.slice(offset, offset + size);
 
-    // 获取分页后的根评论ID列表
-    const paginatedRootIds = paginatedRootComments.map((c) => c.id);
+    if (rootCommentRows.length === 0) {
+      return {
+        tree: [],
+        pagination: {
+          page: pageNum,
+          pageSize: size,
+          total,
+          totalPages: Math.ceil(total / size),
+        },
+      };
+    }
 
-    // 构建分页后的列表（包含根评论和它们的子评论）
-    const list = commentRows.filter(
-      (comment) =>
-        (comment.parent_id === 0 && paginatedRootIds.includes(comment.id)) ||
-        (comment.parent_id !== 0 &&
-          paginatedRootIds.includes(
-            this.findRootParent(commentRows, comment.id)
-          ))
+    // 获取根评论 ID 列表
+    const rootIds = rootCommentRows.map((c) => c.id);
+
+    // 获取这些根评论的所有子评论（不限层级）
+    const [allCommentRows] = await pool.execute(
+      `SELECT c.*, u.username, u.nickname, u.avatar 
+     FROM comments c 
+     JOIN users u ON c.user_id = u.id 
+     WHERE c.article_id = ? AND c.parent_id IN (?) 
+     ORDER BY c.create_time ASC`,
+      [articleId, rootIds],
     );
+
+    // 合并根评论和子评论
+    const allComments = [...rootCommentRows, ...allCommentRows];
+
+    // 构建树结构
+    const tree = this.buildCommentTree(allComments);
 
     return {
-      list,
       tree,
       pagination: {
         page: pageNum,
@@ -218,7 +224,7 @@ class CommentService {
       // 检查文章是否存在
       const [articleRows] = await connection.execute(
         "SELECT id FROM articles WHERE id = ?",
-        [articleId]
+        [articleId],
       );
 
       if (articleRows.length === 0) {
@@ -228,7 +234,7 @@ class CommentService {
       // 检查被回复的评论是否存在且属于该文章
       const [commentRows] = await connection.execute(
         "SELECT id FROM comments WHERE id = ? AND article_id = ?",
-        [commentId, articleId]
+        [commentId, articleId],
       );
 
       if (commentRows.length === 0) {
@@ -238,7 +244,7 @@ class CommentService {
       // 插入回复（作为子评论）
       const [result] = await connection.execute(
         "INSERT INTO comments (content, article_id, user_id, parent_id) VALUES (?, ?, ?, ?)",
-        [content, articleId, userId, commentId]
+        [content, articleId, userId, commentId],
       );
 
       // 获取插入的回复
@@ -247,7 +253,7 @@ class CommentService {
          FROM comments c 
          JOIN users u ON c.user_id = u.id 
          WHERE c.id = ?`,
-        [result.insertId]
+        [result.insertId],
       );
 
       await connection.commit();
@@ -275,7 +281,7 @@ class CommentService {
       // 检查评论是否存在
       const [commentRows] = await connection.execute(
         "SELECT id, user_id FROM comments WHERE id = ?",
-        [commentId]
+        [commentId],
       );
 
       if (commentRows.length === 0) {
@@ -292,7 +298,7 @@ class CommentService {
       // 删除评论及其所有子评论
       await connection.execute(
         "DELETE FROM comments WHERE id = ? OR parent_id = ?",
-        [commentId, commentId]
+        [commentId, commentId],
       );
 
       await connection.commit();
@@ -316,7 +322,7 @@ class CommentService {
        FROM comments c 
        JOIN users u ON c.user_id = u.id 
        WHERE c.id = ?`,
-      [commentId]
+      [commentId],
     );
 
     if (rows.length === 0) {
