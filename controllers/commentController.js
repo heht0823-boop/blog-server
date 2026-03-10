@@ -8,7 +8,6 @@ class CommentController {
    * 创建评论（根评论，parent_id=0）
    */
   createComment = asyncHandler(async (req, res) => {
-    // ✅ 添加用户信息检查（修复 null 错误）
     if (!req.user || !req.user.id) {
       return res.status(401).json({
         error: "用户未认证",
@@ -19,7 +18,6 @@ class CommentController {
     const { content, articleId } = req.body;
     const userId = req.user.id;
 
-    // ✅ 参数验证
     if (
       !content ||
       typeof content !== "string" ||
@@ -45,8 +43,8 @@ class CommentController {
     const commentData = {
       content: content.trim(),
       articleId: Number(articleId),
-      userId,
-      parentId: 0, // 强制为根评论
+      userId: Number(userId),
+      parentId: 0,
     };
 
     const comment = await commentService.createComment(commentData);
@@ -60,7 +58,6 @@ class CommentController {
     const { articleId } = req.params;
     const { page = 1, pageSize = 10 } = req.query;
 
-    // ✅ 参数验证
     if (
       !articleId ||
       !Number.isInteger(Number(articleId)) ||
@@ -74,8 +71,8 @@ class CommentController {
 
     const result = await commentService.getCommentsByArticleId(
       Number(articleId),
-      parseInt(page),
-      parseInt(pageSize),
+      Number(page),
+      Number(pageSize),
     );
 
     successResponse(res, result, "获取评论成功");
@@ -85,7 +82,6 @@ class CommentController {
    * 回复评论（子评论，parent_id>0，从路由参数获取）
    */
   replyToComment = asyncHandler(async (req, res) => {
-    // ✅ 添加用户信息检查（修复 null 错误）
     if (!req.user || !req.user.id) {
       return res.status(401).json({
         error: "用户未认证",
@@ -97,7 +93,6 @@ class CommentController {
     const { content, articleId } = req.body;
     const userId = req.user.id;
 
-    // ✅ 参数验证
     if (!id || !Number.isInteger(Number(id)) || Number(id) <= 0) {
       return res.status(400).json({
         error: "参数错误",
@@ -130,7 +125,7 @@ class CommentController {
     const replyData = {
       content: content.trim(),
       articleId: Number(articleId),
-      userId,
+      userId: Number(userId),
     };
 
     const reply = await commentService.replyToComment(Number(id), replyData);
@@ -141,7 +136,6 @@ class CommentController {
    * 删除评论
    */
   deleteComment = asyncHandler(async (req, res) => {
-    // ✅ 添加用户信息检查（修复 null 错误）
     if (!req.user || !req.user.id) {
       return res.status(401).json({
         error: "用户未认证",
@@ -153,7 +147,6 @@ class CommentController {
     const userId = req.user.id;
     const userRole = req.user.role || 0;
 
-    // ✅ 参数验证
     if (!id || !Number.isInteger(Number(id)) || Number(id) <= 0) {
       return res.status(400).json({
         error: "参数错误",
@@ -161,7 +154,11 @@ class CommentController {
       });
     }
 
-    await commentService.deleteComment(Number(id), userId, userRole);
+    await commentService.deleteComment(
+      Number(id),
+      Number(userId),
+      Number(userRole),
+    );
     successResponse(res, null, "评论删除成功");
   });
 }
