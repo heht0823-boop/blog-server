@@ -53,18 +53,14 @@ class ArticleService {
       throw err;
     }
   }
-  /**
-   * 获取文章列表（分页）
-   */
   async getArticles(page = 1, pageSize = 10, filters = {}, userRole = "user") {
     try {
       const offset = (page - 1) * pageSize;
+      // 移除关联查询，只查询 articles 表
       let query = `
-      SELECT DISTINCT a.*, u.username as author_name, c.name as category_name 
-      FROM articles a 
-      LEFT JOIN users u ON a.user_id = u.id 
-      LEFT JOIN categories c ON a.category_id = c.id 
-      WHERE 1=1`;
+    SELECT a.* 
+    FROM articles a 
+    WHERE 1=1`;
       const params = [];
       const countParams = [];
 
@@ -91,26 +87,23 @@ class ArticleService {
 
       // 权限控制
       if (userRole !== "admin") {
-        // 普通用户或未登录用户只能查看已发布文章
         query += " AND a.status = 1";
       } else if (filters.status !== undefined) {
-        // 管理员可以指定status过滤
         query += " AND a.status = ?";
         params.push(filters.status);
         countParams.push(filters.status);
       }
-      // 如果管理员没有指定status，则不添加状态过滤条件，返回所有状态的文章
 
       query += " ORDER BY a.create_time DESC LIMIT ? OFFSET ?";
       params.push(pageSize, offset);
 
       const [articles] = await pool.query(query, params);
 
-      // 获取总数
+      // 获取总数（同步修改）
       let countQuery = `
-      SELECT COUNT(DISTINCT a.id) as total 
-      FROM articles a 
-      WHERE 1=1`;
+    SELECT COUNT(DISTINCT a.id) as total 
+    FROM articles a 
+    WHERE 1=1`;
 
       if (filters.category_id) {
         countQuery += " AND a.category_id = ?";
@@ -120,21 +113,16 @@ class ArticleService {
         countQuery += " AND a.user_id = ?";
       }
 
-      // 标签过滤
       if (filters.tag_id) {
         countQuery +=
           " AND EXISTS (SELECT 1 FROM article_tags at WHERE at.article_id = a.id AND at.tag_id = ?)";
       }
 
-      // 权限控制
       if (userRole !== "admin") {
-        // 普通用户或未登录用户只能查看已发布文章
         countQuery += " AND a.status = 1";
       } else if (filters.status !== undefined) {
-        // 管理员可以指定status过滤
         countQuery += " AND a.status = ?";
       }
-      // 如果管理员没有指定status，则不添加状态过滤条件，返回所有状态的文章
 
       const [countResult] = await pool.query(countQuery, countParams);
       const total = countResult[0].total;
@@ -143,18 +131,23 @@ class ArticleService {
     } catch (err) {
       throw err;
     }
-  }
-  /**
+  } /**
    * 获取单篇文章详情（带权限控制）
    */
   async getArticleById(articleId, userRole = "user") {
     try {
-      let query = "SELECT * FROM articles WHERE id = ?";
+      // 添加关联查询获取作者和分类信息
+      let query = `
+    SELECT a.*, u.username as author_name, c.name as category_name 
+    FROM articles a 
+    LEFT JOIN users u ON a.user_id = u.id 
+    LEFT JOIN categories c ON a.category_id = c.id 
+    WHERE a.id = ?`;
       const params = [articleId];
 
       // 非管理员只能查看已发布文章
       if (userRole !== "admin") {
-        query += " AND status = 1";
+        query += " AND a.status = 1";
       }
 
       const [articles] = await pool.query(query, params);
