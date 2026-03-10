@@ -8,19 +8,45 @@ class CommentController {
    * 创建评论（根评论，parent_id=0）
    */
   createComment = asyncHandler(async (req, res) => {
-    const { content, articleId, parentId } = req.body;
-    const userId = req.user.id;
-
-    if (!req.user || !userId) {
-      return res.status(401).json({ error: "用户未认证" });
+    // ✅ 添加用户信息检查（修复 null 错误）
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        error: "用户未认证",
+        message: "请先登录",
+      });
     }
 
-    // 创建评论时强制 parentId=0（根评论）
+    const { content, articleId } = req.body;
+    const userId = req.user.id;
+
+    // ✅ 参数验证
+    if (
+      !content ||
+      typeof content !== "string" ||
+      content.trim().length === 0
+    ) {
+      return res.status(400).json({
+        error: "参数错误",
+        message: "评论内容不能为空",
+      });
+    }
+
+    if (
+      !articleId ||
+      !Number.isInteger(Number(articleId)) ||
+      Number(articleId) <= 0
+    ) {
+      return res.status(400).json({
+        error: "参数错误",
+        message: "文章 ID 无效",
+      });
+    }
+
     const commentData = {
-      content,
-      articleId,
+      content: content.trim(),
+      articleId: Number(articleId),
       userId,
-      parentId: 0,
+      parentId: 0, // 强制为根评论
     };
 
     const comment = await commentService.createComment(commentData);
@@ -28,14 +54,26 @@ class CommentController {
   });
 
   /**
-   * 获取文章评论
+   * 获取文章评论（无需认证）
    */
   getCommentsByArticleId = asyncHandler(async (req, res) => {
     const { articleId } = req.params;
     const { page = 1, pageSize = 10 } = req.query;
 
+    // ✅ 参数验证
+    if (
+      !articleId ||
+      !Number.isInteger(Number(articleId)) ||
+      Number(articleId) <= 0
+    ) {
+      return res.status(400).json({
+        error: "参数错误",
+        message: "文章 ID 无效",
+      });
+    }
+
     const result = await commentService.getCommentsByArticleId(
-      articleId,
+      Number(articleId),
       parseInt(page),
       parseInt(pageSize),
     );
@@ -47,22 +85,55 @@ class CommentController {
    * 回复评论（子评论，parent_id>0，从路由参数获取）
    */
   replyToComment = asyncHandler(async (req, res) => {
-    const { id } = req.params; // 从路由获取父评论 ID
+    // ✅ 添加用户信息检查（修复 null 错误）
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        error: "用户未认证",
+        message: "请先登录",
+      });
+    }
+
+    const { id } = req.params;
     const { content, articleId } = req.body;
     const userId = req.user.id;
 
-    if (!req.user || !userId) {
-      return res.status(401).json({ error: "用户未认证" });
+    // ✅ 参数验证
+    if (!id || !Number.isInteger(Number(id)) || Number(id) <= 0) {
+      return res.status(400).json({
+        error: "参数错误",
+        message: "评论 ID 无效",
+      });
+    }
+
+    if (
+      !content ||
+      typeof content !== "string" ||
+      content.trim().length === 0
+    ) {
+      return res.status(400).json({
+        error: "参数错误",
+        message: "回复内容不能为空",
+      });
+    }
+
+    if (
+      !articleId ||
+      !Number.isInteger(Number(articleId)) ||
+      Number(articleId) <= 0
+    ) {
+      return res.status(400).json({
+        error: "参数错误",
+        message: "文章 ID 无效",
+      });
     }
 
     const replyData = {
-      content,
-      articleId,
+      content: content.trim(),
+      articleId: Number(articleId),
       userId,
     };
 
-    // 使用路由参数 id 作为父评论 ID
-    const reply = await commentService.replyToComment(id, replyData);
+    const reply = await commentService.replyToComment(Number(id), replyData);
     successResponse(res, reply, "回复成功", 201);
   });
 
@@ -70,11 +141,27 @@ class CommentController {
    * 删除评论
    */
   deleteComment = asyncHandler(async (req, res) => {
+    // ✅ 添加用户信息检查（修复 null 错误）
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        error: "用户未认证",
+        message: "请先登录",
+      });
+    }
+
     const { id } = req.params;
     const userId = req.user.id;
-    const userRole = req.user.role;
+    const userRole = req.user.role || 0;
 
-    await commentService.deleteComment(id, userId, userRole);
+    // ✅ 参数验证
+    if (!id || !Number.isInteger(Number(id)) || Number(id) <= 0) {
+      return res.status(400).json({
+        error: "参数错误",
+        message: "评论 ID 无效",
+      });
+    }
+
+    await commentService.deleteComment(Number(id), userId, userRole);
     successResponse(res, null, "评论删除成功");
   });
 }
