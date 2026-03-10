@@ -5,24 +5,15 @@ const { NotFoundError } = require("../middleware/errorHandler");
 class CommentService {
   /**
    * 创建评论（根评论，parent_id=0）
-   * @param {Object} commentData - 评论数据
-   * @param {string} commentData.content - 评论内容
-   * @param {number} commentData.articleId - 文章 ID
-   * @param {number} commentData.userId - 用户 ID
-   * @param {number} commentData.parentId - 父评论 ID（默认 0）
-   * @returns {Object} 评论对象
    */
   async createComment(commentData) {
     const { content, articleId, userId, parentId = 0 } = commentData;
-
-    // 确保 parentId 为 0（创建根评论）
     const finalParentId = parentId || 0;
 
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
 
-      // 检查文章是否存在
       const [articleRows] = await connection.execute(
         "SELECT id FROM articles WHERE id = ?",
         [articleId],
@@ -32,7 +23,6 @@ class CommentService {
         throw new NotFoundError("文章不存在");
       }
 
-      // 如果有父评论，检查父评论是否存在且属于该文章
       if (finalParentId > 0) {
         const [parentRows] = await connection.execute(
           "SELECT id FROM comments WHERE id = ? AND article_id = ?",
@@ -44,13 +34,11 @@ class CommentService {
         }
       }
 
-      // 插入评论
       const [result] = await connection.execute(
         "INSERT INTO comments (content, article_id, user_id, parent_id) VALUES (?, ?, ?, ?)",
         [content, articleId, userId, finalParentId],
       );
 
-      // 获取插入的评论
       const [commentRows] = await connection.execute(
         `SELECT c.*, u.username, u.nickname, u.avatar 
          FROM comments c 
@@ -71,17 +59,10 @@ class CommentService {
 
   /**
    * 回复评论（子评论，parent_id>0）
-   * @param {number} parentCommentId - 父评论 ID（从路由获取）
-   * @param {Object} replyData - 回复数据
-   * @param {string} replyData.content - 回复内容
-   * @param {number} replyData.articleId - 文章 ID
-   * @param {number} replyData.userId - 用户 ID
-   * @returns {Object} 回复对象
    */
   async replyToComment(parentCommentId, replyData) {
     const { content, articleId, userId } = replyData;
 
-    // 确保 parentCommentId > 0
     if (!parentCommentId || parentCommentId <= 0) {
       throw new Error("父评论 ID 必须大于 0");
     }
@@ -90,7 +71,6 @@ class CommentService {
     try {
       await connection.beginTransaction();
 
-      // 检查文章是否存在
       const [articleRows] = await connection.execute(
         "SELECT id FROM articles WHERE id = ?",
         [articleId],
@@ -100,7 +80,6 @@ class CommentService {
         throw new NotFoundError("文章不存在");
       }
 
-      // 检查被回复的评论是否存在且属于该文章
       const [commentRows] = await connection.execute(
         "SELECT id FROM comments WHERE id = ? AND article_id = ?",
         [parentCommentId, articleId],
@@ -110,13 +89,11 @@ class CommentService {
         throw new NotFoundError("被回复的评论不存在或不属于该文章");
       }
 
-      // 插入回复（作为子评论）
       const [result] = await connection.execute(
         "INSERT INTO comments (content, article_id, user_id, parent_id) VALUES (?, ?, ?, ?)",
         [content, articleId, userId, parentCommentId],
       );
 
-      // 获取插入的回复
       const [replyRows] = await connection.execute(
         `SELECT c.*, u.username, u.nickname, u.avatar 
          FROM comments c 
@@ -137,13 +114,8 @@ class CommentService {
 
   /**
    * 获取文章的所有评论（分页，树形结构）
-   * @param {number} articleId - 文章 ID
-   * @param {number} page - 页码
-   * @param {number} pageSize - 每页条数
-   * @returns {Object} 包含评论树和分页信息的对象
    */
   async getCommentsByArticleId(articleId, page = 1, pageSize = 10) {
-    // 检查文章是否存在
     const [articleRows] = await pool.execute(
       "SELECT id FROM articles WHERE id = ?",
       [articleId],
@@ -153,19 +125,16 @@ class CommentService {
       throw new NotFoundError("文章不存在");
     }
 
-    // 确保参数为正整数类型
     const pageNum = Math.max(1, parseInt(page) || 1);
     const size = Math.min(100, Math.max(1, parseInt(pageSize) || 10));
     const offset = (pageNum - 1) * size;
 
-    // 获取根评论总数（只统计 parent_id = 0 的评论）
     const [countRows] = await pool.execute(
       "SELECT COUNT(*) as total FROM comments WHERE article_id = ? AND parent_id = 0",
       [articleId],
     );
     const total = countRows[0].total;
 
-    // 如果没有评论，直接返回空树
     if (total === 0) {
       return {
         tree: [],
@@ -178,7 +147,6 @@ class CommentService {
       };
     }
 
-    // 获取分页后的根评论
     const [rootCommentRows] = await pool.execute(
       `SELECT c.*, u.username, u.nickname, u.avatar 
        FROM comments c 
@@ -189,7 +157,7 @@ class CommentService {
       [articleId, size, offset],
     );
 
-    if (rootCommentRows.length === 0) {
+    if (!rootCommentRows || rootCommentRows.length === 0) {
       return {
         tree: [],
         pagination: {
@@ -201,16 +169,27 @@ class CommentService {
       };
     }
 
-    // 获取根评论 ID 列表
-    const rootIds = rootCommentRows.map((c) => c.id);
+    const rootIds = rootCommentRows
+      .map((c) => Number(c.id))
+      .filter((id) => id > 0);
 
-    // 递归获取所有子评论（处理多级评论）
+    // ✅ 如果没有根评论 ID，直接返回
+    if (rootIds.length === 0) {
+      const tree = this.buildCommentTreeWithOrphanHandle(rootCommentRows);
+      return {
+        tree,
+        pagination: {
+          page: pageNum,
+          pageSize: size,
+          total,
+          totalPages: Math.ceil(total / size),
+        },
+      };
+    }
+
+    // ✅ 修复：正确处理 IN 子句的数组参数
     const allComments = await this.getAllChildComments(articleId, rootIds);
-
-    // 合并根评论和子评论
     const allCommentsWithRoot = [...rootCommentRows, ...allComments];
-
-    // 构建树结构（处理父评论被删除的孤儿评论）
     const tree = this.buildCommentTreeWithOrphanHandle(allCommentsWithRoot);
 
     return {
@@ -225,32 +204,39 @@ class CommentService {
   }
 
   /**
-   * 递归获取所有子评论
-   * @param {number} articleId - 文章 ID
-   * @param {Array} parentIds - 父评论 ID 列表
-   * @returns {Array} 所有子评论
+   * 递归获取所有子评论（修复 IN 子句问题）
    */
   async getAllChildComments(articleId, parentIds) {
-    if (!parentIds || parentIds.length === 0) {
+    if (!parentIds || !Array.isArray(parentIds) || parentIds.length === 0) {
       return [];
     }
 
-    // 获取直接子评论
-    const [childRows] = await pool.execute(
-      `SELECT c.*, u.username, u.nickname, u.avatar 
-       FROM comments c 
-       JOIN users u ON c.user_id = u.id 
-       WHERE c.article_id = ? AND c.parent_id IN (?) 
-       ORDER BY c.create_time ASC`,
-      [articleId, parentIds],
-    );
-
-    if (childRows.length === 0) {
+    // ✅ 确保所有 ID 都是数字
+    const validIds = parentIds.map((id) => Number(id)).filter((id) => id > 0);
+    if (validIds.length === 0) {
       return [];
     }
 
-    // 递归获取下一级子评论
-    const childIds = childRows.map((c) => c.id);
+    // ✅ 动态生成占位符
+    const placeholders = validIds.map(() => "?").join(",");
+    const sql = `
+      SELECT c.*, u.username, u.nickname, u.avatar 
+      FROM comments c 
+      JOIN users u ON c.user_id = u.id 
+      WHERE c.article_id = ? AND c.parent_id IN (${placeholders}) 
+      ORDER BY c.create_time ASC
+    `;
+
+    // ✅ 参数数组：第一个是 articleId，后面是每个 parent ID
+    const params = [articleId, ...validIds];
+
+    const [childRows] = await pool.execute(sql, params);
+
+    if (!childRows || childRows.length === 0) {
+      return [];
+    }
+
+    const childIds = childRows.map((c) => Number(c.id));
     const grandChildRows = await this.getAllChildComments(articleId, childIds);
 
     return [...childRows, ...grandChildRows];
@@ -258,39 +244,34 @@ class CommentService {
 
   /**
    * 构建评论树结构（处理孤儿评论）
-   * @param {Array} comments - 平面评论数组
-   * @returns {Array} 树形结构的评论数组
    */
   buildCommentTreeWithOrphanHandle(comments) {
-    // 为每个评论添加 children 属性
+    if (!comments || comments.length === 0) {
+      return [];
+    }
+
     const commentMap = {};
     comments.forEach((comment) => {
       comment.children = [];
       commentMap[comment.id] = comment;
     });
 
-    // 构建树结构
     const tree = [];
     const orphanComments = [];
 
     comments.forEach((comment) => {
-      if (comment.parent_id === 0) {
-        // 根评论
+      if (comment.parent_id === 0 || comment.parent_id === null) {
         tree.push(comment);
       } else {
         const parent = commentMap[comment.parent_id];
         if (parent) {
-          // 父评论存在，添加到父评论的 children
           parent.children.push(comment);
         } else {
-          // 父评论不存在（被删除），标记为孤儿评论
           orphanComments.push(comment);
         }
       }
     });
 
-    // 处理孤儿评论：将它们提升到根级别或附加到最近的可用祖先
-    // 这里选择将孤儿评论附加到根级别，并标记为孤儿
     orphanComments.forEach((orphan) => {
       orphan.is_orphan = true;
       tree.push(orphan);
@@ -300,11 +281,13 @@ class CommentService {
   }
 
   /**
-   * 构建评论树结构（原始方法，保留兼容）
-   * @param {Array} comments - 平面评论数组
-   * @returns {Array} 树形结构的评论数组
+   * 构建评论树结构（原始方法）
    */
   buildCommentTree(comments) {
+    if (!comments || comments.length === 0) {
+      return [];
+    }
+
     const commentMap = {};
     comments.forEach((comment) => {
       comment.children = [];
@@ -328,17 +311,12 @@ class CommentService {
 
   /**
    * 删除评论（递归删除所有子评论）
-   * @param {number} commentId - 评论 ID
-   * @param {number} userId - 用户 ID
-   * @param {number} userRole - 用户角色
-   * @returns {boolean} 是否删除成功
    */
   async deleteComment(commentId, userId, userRole) {
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
 
-      // 检查评论是否存在
       const [commentRows] = await connection.execute(
         "SELECT id, user_id FROM comments WHERE id = ?",
         [commentId],
@@ -350,19 +328,18 @@ class CommentService {
 
       const comment = commentRows[0];
 
-      // 检查权限（评论作者或管理员）
       if (comment.user_id !== userId && userRole < 1) {
         throw new Error("无权限删除此评论");
       }
 
-      // 递归获取所有子评论 ID
       const childIds = await this.getAllChildCommentIds(commentId);
 
-      // 删除评论及其所有子评论
       if (childIds.length > 0) {
+        // ✅ 修复：正确处理 IN 子句
+        const placeholders = childIds.map(() => "?").join(",");
         await connection.execute(
-          "DELETE FROM comments WHERE id = ? OR id IN (?)",
-          [commentId, childIds],
+          `DELETE FROM comments WHERE id = ? OR id IN (${placeholders})`,
+          [commentId, ...childIds],
         );
       } else {
         await connection.execute("DELETE FROM comments WHERE id = ?", [
@@ -382,8 +359,6 @@ class CommentService {
 
   /**
    * 递归获取所有子评论 ID
-   * @param {number} commentId - 评论 ID
-   * @returns {Array} 所有子评论 ID 列表
    */
   async getAllChildCommentIds(commentId) {
     const [childRows] = await pool.execute(
@@ -391,14 +366,13 @@ class CommentService {
       [commentId],
     );
 
-    if (childRows.length === 0) {
+    if (!childRows || childRows.length === 0) {
       return [];
     }
 
-    const childIds = childRows.map((c) => c.id);
+    const childIds = childRows.map((c) => Number(c.id));
     let allChildIds = [...childIds];
 
-    // 递归获取下一级子评论
     for (const childId of childIds) {
       const grandChildIds = await this.getAllChildCommentIds(childId);
       allChildIds = [...allChildIds, ...grandChildIds];
@@ -409,8 +383,6 @@ class CommentService {
 
   /**
    * 根据 ID 获取评论
-   * @param {number} commentId - 评论 ID
-   * @returns {Object} 评论对象
    */
   async getCommentById(commentId) {
     const [rows] = await pool.execute(
