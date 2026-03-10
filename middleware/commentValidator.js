@@ -11,7 +11,7 @@ const commentIdValidator = [
     .toInt(),
 ];
 
-// ===== 评论创建验证 =====
+// ===== 评论创建验证（根评论，不需要 parentId）=====
 const commentCreateValidator = [
   body("content")
     .trim()
@@ -27,6 +27,7 @@ const commentCreateValidator = [
     .withMessage("文章 ID 必须是正整数")
     .toInt(),
 
+  // parentId 可选，但创建根评论时会被忽略
   body("parentId")
     .optional()
     .isInt({ min: 0 })
@@ -34,7 +35,7 @@ const commentCreateValidator = [
     .toInt(),
 ];
 
-// ===== 回复评论验证 =====
+// ===== 回复评论验证（子评论，从路由获取父 ID）=====
 const commentReplyValidator = [
   param("id")
     .exists()
