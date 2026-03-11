@@ -8,6 +8,28 @@ const {
 
 class ArticleController {
   /**
+   * ✅ 新增：上传文章封面图片
+   */
+  uploadCover = asyncHandler(async (req, res, next) => {
+    // 使用 multer 处理文件上传
+    upload.single("cover")(req, res, async (err) => {
+      if (err) {
+        return errorResponse(res, err, err.message, 400);
+      }
+
+      if (!req.file) {
+        return errorResponse(res, null, "请选择文件", 400);
+      }
+
+      // 构建文件访问 URL（使用服务器域名，适配阿里云部署）
+      const coverUrl = `${req.protocol}://${req.get("host")}/uploads/${
+        req.file.filename
+      }`;
+
+      successResponse(res, { cover: coverUrl }, "封面上传成功");
+    });
+  });
+  /**
    * 创建文章
    */
   createArticle = asyncHandler(async (req, res, next) => {

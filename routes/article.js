@@ -71,6 +71,12 @@ router.get(
 );
 
 // ===== 需要认证的接口 =====
+// 上传文章封面图片
+router.post(
+  "/upload/cover",
+  strictAuthMiddleware,
+  ArticleController.uploadCover,
+);
 
 // 创建文章
 router.post(
