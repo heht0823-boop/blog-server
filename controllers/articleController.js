@@ -601,9 +601,10 @@ class ArticleController {
   getArticleDetail = asyncHandler(async (req, res, next) => {
     try {
       const { id } = req.params;
-      const isAdmin = req.user.role === 1; // ✅ 无需检查 req.user 是否存在
+      // ✅ 处理游客情况
+      const isAdmin = req.user && req.user.role === 1;
       const userRole = isAdmin ? "admin" : "user";
-      const userId = req.user.id; // ✅ 直接使用
+      const userId = req.user ? req.user.id : null;
 
       const article = await articleService.getArticleById(id, userRole);
 
@@ -611,12 +612,14 @@ class ArticleController {
         return errorResponse(res, null, "文章不存在", 404);
       }
 
-      // 获取当前用户的点赞和收藏状态
-      const likeStatus = await articleService.checkUserLikeStatus(id, userId);
-      const collectStatus = await articleService.checkUserCollectStatus(
-        id,
-        userId,
-      );
+      // ✅ 只有登录用户才能获取点赞/收藏状态
+      let likeStatus = { isLiked: false };
+      let collectStatus = { isCollected: false };
+
+      if (userId) {
+        likeStatus = await articleService.checkUserLikeStatus(id, userId);
+        collectStatus = await articleService.checkUserCollectStatus(id, userId);
+      }
 
       successResponse(
         res,

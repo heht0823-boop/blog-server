@@ -118,7 +118,7 @@ router.put(
 // 获取文章详情
 router.get(
   "/:id",
-  strictAuthMiddleware, // ✅ 改为严格认证
+  authMiddleware, // ✅ 改为可选认证，游客也可访问
   validate(articleIdValidator),
   ArticleController.getArticleDetail,
 );
