@@ -1,5 +1,6 @@
 const articleService = require("../services/articleService");
 const { param } = require("express-validator");
+const { upload } = require("../utils/upload");
 const {
   successResponse,
   errorResponse,
