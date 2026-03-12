@@ -113,10 +113,17 @@ const deleteCoverValidator = [
     .trim()
     .notEmpty()
     .withMessage("文件名不能为空")
-    .matches(/^[a-zA-Z0-9_-]+\.(jpg|jpeg|png|gif|webp)$/i)
-    .withMessage("文件名格式不正确"),
+    .matches(/^[a-zA-Z0-9_-]+(\.[a-zA-Z0-9]+)?$/i) // 允许任意扩展名
+    .withMessage("文件名格式不正确")
+    .custom((value) => {
+      const ext = value.split(".").pop().toLowerCase();
+      const allowedExts = ["jpg", "jpeg", "png", "gif", "webp"];
+      if (!allowedExts.includes(ext)) {
+        throw new Error("不支持的文件类型");
+      }
+      return true;
+    }),
 ];
-
 module.exports = {
   articleIdValidator,
   articleCreateValidator,

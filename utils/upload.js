@@ -3,41 +3,42 @@ const path = require("path");
 const fs = require("fs");
 const { errorResponse } = require("../middleware/errorHandler");
 
-// 上传目录配置
+// ===== 上传目录配置 =====
 const UPLOAD_DIR = process.env.UPLOAD_DIR || "./public/uploads";
-const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"]; // 允许的文件类型
+// 计算绝对路径（相对于项目根目录）
+const ABSOLUTE_UPLOAD_DIR = path.resolve(__dirname, "../", UPLOAD_DIR);
+
+// ===== 文件类型和大小限制 =====
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
 const MAX_SIZE = parseInt(process.env.UPLOAD_MAX_SIZE) || 2 * 1024 * 1024; // 2MB
 
 // 确保上传目录存在
-if (!fs.existsSync(UPLOAD_DIR)) {
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+if (!fs.existsSync(ABSOLUTE_UPLOAD_DIR)) {
+  fs.mkdirSync(ABSOLUTE_UPLOAD_DIR, { recursive: true });
 }
 
-// 配置multer存储
+// 配置 multer 存储
 const storage = multer.diskStorage({
-  // 存储路径
   destination: (req, file, cb) => {
-    cb(null, UPLOAD_DIR);
+    cb(null, ABSOLUTE_UPLOAD_DIR);
   },
-  // 文件名（避免重复）：时间戳+原文件名
   filename: (req, file, cb) => {
     const timestamp = Date.now();
-    const originalName = file.originalname.replace(/\s+/g, "-"); // 替换空格
-    const fileName = `${timestamp}-${originalName}`;
+    const ext = path.extname(file.originalname).toLowerCase();
+    const baseName = path.basename(file.originalname, ext).replace(/\s+/g, "-");
+    const fileName = `${timestamp}-${baseName}${ext}`;
     cb(null, fileName);
   },
 });
 
-// 文件过滤（类型+大小）
+// 文件过滤（类型 + 大小）
 const fileFilter = (req, file, cb) => {
-  // 验证文件类型
   if (!ALLOWED_TYPES.includes(file.mimetype)) {
-    return cb(new Error("不支持的文件类型，仅允许JPG/PNG/GIF/WebP"), false);
+    return cb(new Error("不支持的文件类型，仅允许 JPG/PNG/GIF/WebP"), false);
   }
-  // 验证文件大小
   if (file.size > MAX_SIZE) {
     return cb(
-      new Error(`文件大小超过限制，最大支持${process.env.UPLOAD_MAX_SIZE}`),
+      new Error(`文件大小超过限制，最大支持${MAX_SIZE / 1024 / 1024}MB`),
       false,
     );
   }
@@ -52,11 +53,9 @@ const upload = multer({
 });
 
 /**
- * 封装文件上传响应处理：
- * - 返回文件访问URL
+ * 封装文件上传响应处理
  */
 const handleUpload = (fieldName) => {
-  // 从环境变量读取后端公网地址，没有则用默认
   const SERVER_DOMAIN =
     process.env.SERVER_DOMAIN || "http://101.132.192.107:3000";
 
@@ -68,7 +67,6 @@ const handleUpload = (fieldName) => {
       if (!req.file) {
         return errorResponse(res, null, "请选择文件", 400);
       }
-      // 构建文件访问URL（用固定公网地址，避免 req.get("host") 取到内网IP）
       const fileUrl = `${SERVER_DOMAIN}/uploads/${req.file.filename}`;
       req.uploadFile = {
         url: fileUrl,
@@ -80,4 +78,9 @@ const handleUpload = (fieldName) => {
   };
 };
 
-module.exports = { upload, handleUpload };
+// ✅ 导出上传目录绝对路径供其他模块使用
+module.exports = {
+  upload,
+  handleUpload,
+  UPLOAD_DIR: ABSOLUTE_UPLOAD_DIR,
+};

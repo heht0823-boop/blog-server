@@ -2,7 +2,9 @@ const fs = require("fs");
 const path = require("path");
 const articleService = require("../services/articleService");
 const { param } = require("express-validator");
-const { upload } = require("../utils/upload");
+const { upload, UPLOAD_DIR } = require("../utils/upload");
+const SERVER_DOMAIN =
+  process.env.SERVER_DOMAIN || "http://101.132.192.107:3000";
 const {
   successResponse,
   errorResponse,
@@ -25,9 +27,7 @@ class ArticleController {
       }
 
       // 构建文件访问 URL（使用服务器域名，适配阿里云部署）
-      const coverUrl = `${req.protocol}://${req.get("host")}/uploads/${
-        req.file.filename
-      }`;
+      const coverUrl = `${SERVER_DOMAIN}/uploads/${req.file.filename}`;
 
       successResponse(res, { cover: coverUrl }, "封面上传成功");
     });
@@ -37,26 +37,28 @@ class ArticleController {
    */
   deleteCover = asyncHandler(async (req, res, next) => {
     try {
-      // 添加用户认证检查
       if (!req.user) {
         return errorResponse(res, null, "用户未认证", 401);
       }
 
       const { filename } = req.body;
 
-      // 验证文件名参数
       if (!filename) {
         return errorResponse(res, null, "文件名不能为空", 400);
       }
 
       // 防止路径遍历攻击
       const safeFilename = path.basename(filename);
-      const uploadDir = process.env.UPLOAD_DIR || "./public/uploads";
-      const absoluteUploadDir = path.resolve(__dirname, uploadDir);
-      const filePath = path.join(absoluteUploadDir, safeFilename);
+      // ✅ 使用统一导出的 UPLOAD_DIR，不再自己计算路径
+      const filePath = path.join(UPLOAD_DIR, safeFilename);
+
+      // 添加调试日志
+      console.log("删除文件路径:", filePath);
+      console.log("文件是否存在:", fs.existsSync(filePath));
 
       // 检查文件是否存在
       if (!fs.existsSync(filePath)) {
+        console.log("目录内容:", fs.readdirSync(UPLOAD_DIR));
         return errorResponse(res, null, "文件不存在", 404);
       }
 
