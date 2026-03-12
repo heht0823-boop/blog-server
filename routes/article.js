@@ -12,6 +12,7 @@ const {
   articleUpdateValidator,
   articleSearchValidator,
   articleTagValidator,
+  deleteCoverValidator,
 } = require("../middleware/articleValidator");
 const { paginationValidator } = require("../middleware/userValidator");
 const { authMiddleware, strictAuthMiddleware } = require("../middleware/auth");
