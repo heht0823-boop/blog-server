@@ -852,21 +852,21 @@ class ArticleService {
     // 获取文章列表
     const [articles] = await pool.query(
       `
-    SELECT 
-      a.id as articleId,
-      a.title,
-      a.cover,
-      a.read_count as readCount,
-      a.like_count as likeCount,
-      a.collect_count as collectCount,
-      a.create_time as createTime,
-      c.name as categoryName
-    FROM articles a
-    LEFT JOIN categories c ON a.category_id = c.id
-    WHERE a.user_id = ? AND a.status = 0
-    ORDER BY a.create_time DESC
-    LIMIT ? OFFSET ?
-  `,
+  SELECT 
+    a.id as articleId,
+    a.title,
+    a.cover,
+    a.read_count as readCount,
+    a.like_count as likeCount,
+    a.collect_count as collectCount,
+    a.create_time as createTime,
+    c.name as categoryName
+  FROM articles a
+  LEFT JOIN categories c ON a.category_id = c.id
+  WHERE a.user_id = ? AND a.status = 0
+  ORDER BY a.create_time DESC
+  LIMIT ? OFFSET ?
+`,
       [userId, pageSize, offset],
     );
 
@@ -874,7 +874,8 @@ class ArticleService {
       total: countResult[0].total,
       list: articles.map((article) => ({
         ...article,
-        createTime: this.formatDateTime(article.createTime),
+        // 使用内置方法格式化时间
+        createTime: new Date(article.createTime).toLocaleString("zh-CN"),
       })),
     };
   }
