@@ -778,21 +778,31 @@ class ArticleController {
    * 获取用户待审核文章
    */
   getPendingArticles = asyncHandler(async (req, res, next) => {
-    const { userId } = req.params;
-    const { page = 1, pageSize = 10 } = req.query;
+    try {
+      // 添加用户认证检查
+      if (!req.user) {
+        return errorResponse(res, null, "用户未认证", 401);
+      }
 
-    // 安全校验：用户只能查看自己的待审核文章
-    if (parseInt(userId) !== req.user.id) {
-      return errorResponse(res, null, "无权查看他人的待审核文章", 403);
+      const { userId } = req.params;
+      const { page = 1, pageSize = 10 } = req.query;
+
+      // 安全校验：用户只能查看自己的待审核文章
+      if (parseInt(userId) !== req.user.id) {
+        return errorResponse(res, null, "无权查看他人的待审核文章", 403);
+      }
+
+      // ✅ 修改：使用 articleService 而不是 userService
+      const result = await articleService.getPendingArticles(
+        parseInt(userId),
+        parseInt(page),
+        parseInt(pageSize),
+      );
+
+      successResponse(res, result, "获取待审核文章成功");
+    } catch (err) {
+      next(err);
     }
-
-    const result = await userService.getPendingArticles(
-      parseInt(userId),
-      parseInt(page),
-      parseInt(pageSize),
-    );
-
-    successResponse(res, result, "获取待审核文章成功");
   });
 }
 
