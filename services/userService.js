@@ -246,7 +246,7 @@ class UserService {
 
     return {
       userInfo: {
-        userId: user.id,
+        id: user.id,
         username: user.username,
         nickname: user.nickname,
         avatar: user.avatar,
