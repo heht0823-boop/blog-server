@@ -431,6 +431,7 @@ class UserService {
       c.id as commentId,
       c.content,
       c.create_time as createTime,
+      a.id as articleId,
       a.title as articleTitle
     FROM comments c
     INNER JOIN articles a ON c.article_id = a.id
