@@ -194,20 +194,6 @@ class UserService {
 
     return result.affectedRows > 0;
   }
-
-  /**
-   * 获取用户统计信息
-   */
-  async getUserStats() {
-    const [stats] = await pool.query(`
-      SELECT 
-        COUNT(*) as totalUsers,
-        COUNT(CASE WHEN role = 1 THEN 1 END) as adminCount
-      FROM users
-    `);
-
-    return stats[0];
-  }
 }
 
 module.exports = new UserService();

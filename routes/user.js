@@ -87,13 +87,6 @@ router.put(
   validate(passwordUpdateValidator),
   UserController.updatePassword,
 );
-// 获取用户资料（已登录用户可互访）
-router.get(
-  "/:userId/profile",
-  authMiddleware,
-  loggedInUserAccessMiddleware, // 替换原来的 selfOrAdminMiddleware
-  UserController.getUserProfile,
-);
 
 // 上传头像
 router.post("/me/avatar", authMiddleware, UserController.uploadAvatar);
@@ -107,23 +100,6 @@ router.get(
   adminMiddleware,
   validate([...paginationValidator, ...searchValidator]), // 合并校验规则
   UserController.getAllUsers,
-);
-
-// 获取特定用户详情
-router.get(
-  "/:id",
-  authMiddleware,
-  adminMiddleware,
-  validate(userIdValidator),
-  UserController.getUserDetail,
-);
-
-// 获取用户统计
-router.get(
-  "/stats/all",
-  authMiddleware,
-  adminMiddleware,
-  UserController.getUserStats,
 );
 // 删除用户
 router.delete(

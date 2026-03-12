@@ -117,60 +117,6 @@ class UserController {
   });
 
   /**
-   * 获取用户详情（管理员功能）
-   */
-  getUserDetail = asyncHandler(async (req, res, next) => {
-    const { id } = req.params;
-
-    const user = await userService.getUserById(id);
-
-    if (!user) {
-      return errorResponse(res, null, "用户不存在", 404);
-    }
-
-    successResponse(
-      res,
-      {
-        id: user.id,
-        username: user.username,
-        nickname: user.nickname,
-        avatar: user.avatar,
-        role: user.role,
-        create_time: user.create_time,
-        update_time: user.update_time,
-      },
-      "获取成功",
-    );
-  });
-
-  /**
-   * 获取用户资料（已登录用户可互访）
-   */
-  getUserProfile = asyncHandler(async (req, res, next) => {
-    const { userId } = req.params;
-
-    const user = await userService.getUserById(userId);
-
-    if (!user) {
-      return errorResponse(res, null, "用户不存在", 404);
-    }
-
-    // 返回公开信息（不包含敏感字段）
-    successResponse(
-      res,
-      {
-        id: user.id,
-        username: user.username,
-        nickname: user.nickname,
-        avatar: user.avatar,
-        role: user.role,
-        create_time: user.create_time,
-      },
-      "获取成功",
-    );
-  });
-
-  /**
    * 更新用户信息
    */
   updateUser = asyncHandler(async (req, res, next) => {
@@ -250,15 +196,6 @@ class UserController {
       },
       "获取成功",
     );
-  });
-
-  /**
-   * 获取用户统计信息（管理员功能）
-   */
-  getUserStats = asyncHandler(async (req, res, next) => {
-    const stats = await userService.getUserStats();
-
-    successResponse(res, stats, "获取成功");
   });
 
   /**
