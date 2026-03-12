@@ -247,6 +247,29 @@ class UserController {
       successResponse(res, { avatar: avatarUrl }, "头像上传成功");
     });
   });
+  /**
+   * 获取用户主页信息
+   */
+  getUserProfilePage = asyncHandler(async (req, res, next) => {
+    const { userId } = req.params;
+    const { page = 1, pageSize = 10 } = req.query;
+
+    // 当前登录用户 ID（用于权限判断，可选）
+    const currentUserId = req.user?.id || null;
+
+    const profile = await userService.getUserProfilePage(
+      userId,
+      currentUserId,
+      parseInt(page),
+      parseInt(pageSize),
+    );
+
+    if (!profile) {
+      return errorResponse(res, null, "用户不存在", 404);
+    }
+
+    successResponse(res, profile, "获取用户主页信息成功");
+  });
 }
 
 module.exports = new UserController();

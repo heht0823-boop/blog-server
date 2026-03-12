@@ -1,3 +1,4 @@
+// routes/user.js
 const express = require("express");
 const router = express.Router();
 const rateLimit = require("express-rate-limit");
@@ -12,18 +13,15 @@ const {
   userIdValidator,
   paginationValidator,
   searchValidator,
-} = require("../middleware/userValidator"); // 修改这里
+  userProfilePageValidator, // 新增导入
+} = require("../middleware/userValidator");
 const {
   authMiddleware,
   refreshTokenMiddleware,
 } = require("../middleware/auth");
-const {
-  adminMiddleware,
-  loggedInUserAccessMiddleware,
-} = require("../middleware/permission");
+const { adminMiddleware } = require("../middleware/permission");
 
 // ===== 速率限制 =====
-
 const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 10,
@@ -40,8 +38,6 @@ const loginLimiter = rateLimit({
 });
 
 // ===== 公开接口 =====
-
-// 用户注册
 router.post(
   "/register",
   registerLimiter,
@@ -49,7 +45,6 @@ router.post(
   UserController.register,
 );
 
-// 用户登录
 router.post(
   "/login",
   loginLimiter,
@@ -57,7 +52,6 @@ router.post(
   UserController.login,
 );
 
-// 刷新 Token
 router.post(
   "/refresh-token",
   refreshTokenMiddleware,
@@ -65,43 +59,31 @@ router.post(
 );
 
 // ===== 需要认证的接口 =====
-
-// 登出
 router.post("/logout", authMiddleware, UserController.logout);
-
-// 获取当前用户信息
 router.get("/me", authMiddleware, UserController.getCurrentUser);
-
-// 更新当前用户信息
 router.put(
   "/me",
   authMiddleware,
   validate(updateUserValidator),
   UserController.updateUser,
 );
-
-// 修改密码
 router.put(
   "/me/password",
   authMiddleware,
   validate(passwordUpdateValidator),
   UserController.updatePassword,
 );
-
-// 上传头像
 router.post("/me/avatar", authMiddleware, UserController.uploadAvatar);
 
 // ===== 管理员接口 =====
-
-// 获取所有用户
 router.get(
   "/",
   authMiddleware,
   adminMiddleware,
-  validate([...paginationValidator, ...searchValidator]), // 合并校验规则
+  validate([...paginationValidator, ...searchValidator]),
   UserController.getAllUsers,
 );
-// 删除用户
+
 router.delete(
   "/:id",
   authMiddleware,
@@ -109,4 +91,12 @@ router.delete(
   validate(userIdValidator),
   UserController.deleteUser,
 );
+
+// ===== 用户主页接口（公开访问）=====
+router.get(
+  "/:userId/homepage",
+  validate(userProfilePageValidator),
+  UserController.getUserProfilePage,
+);
+
 module.exports = router;

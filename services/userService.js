@@ -194,6 +194,276 @@ class UserService {
 
     return result.affectedRows > 0;
   }
+  /**
+   * 获取用户主页信息
+   */
+  async getUserProfilePage(
+    userId,
+    currentUserId = null,
+    page = 1,
+    pageSize = 10,
+  ) {
+    const offset = (page - 1) * pageSize;
+
+    // 1. 获取用户基础信息
+    const [users] = await pool.query(
+      "SELECT id, username, nickname, avatar, role, create_time FROM users WHERE id = ?",
+      [userId],
+    );
+
+    if (users.length === 0) {
+      return null;
+    }
+
+    const user = users[0];
+
+    // 2. 获取用户统计数据
+    const stats = await this.getUserStatsByUserId(userId);
+
+    // 3. 获取用户发布的文章（分页）
+    const publishedArticles = await this.getPublishedArticles(
+      userId,
+      page,
+      pageSize,
+    );
+
+    // 4. 获取用户收藏的文章（分页）
+    const collectedArticles = await this.getCollectedArticles(
+      userId,
+      page,
+      pageSize,
+    );
+
+    // 5. 获取用户点赞的文章（分页）
+    const likedArticles = await this.getLikedArticles(userId, page, pageSize);
+
+    // 6. 获取用户发布的评论（分页）
+    const publishedComments = await this.getUserComments(
+      userId,
+      page,
+      pageSize,
+    );
+
+    return {
+      userInfo: {
+        userId: user.id,
+        username: user.username,
+        nickname: user.nickname,
+        avatar: user.avatar,
+        role: user.role,
+        createTime: this.formatDateTime(user.create_time),
+        ...stats,
+      },
+      publishedArticles,
+      collectedArticles,
+      likedArticles,
+      publishedComments,
+    };
+  }
+
+  /**
+   * 获取用户统计数据
+   */
+  async getUserStatsByUserId(userId) {
+    const [stats] = await pool.query(
+      `
+    SELECT 
+      COUNT(DISTINCT a.id) as articleTotal,
+      COUNT(DISTINCT c.id) as commentTotal,
+      COALESCE(SUM(a.like_count), 0) as likeTotal,
+      COALESCE(SUM(a.collect_count), 0) as collectTotal
+    FROM users u
+    LEFT JOIN articles a ON u.id = a.user_id AND a.status = 1
+    LEFT JOIN comments c ON u.id = c.user_id
+    WHERE u.id = ?
+  `,
+      [userId],
+    );
+
+    return {
+      articleTotal: stats[0].articleTotal || 0,
+      commentTotal: stats[0].commentTotal || 0,
+      likeTotal: stats[0].likeTotal || 0,
+      collectTotal: stats[0].collectTotal || 0,
+    };
+  }
+
+  /**
+   * 获取用户发布的文章（分页）
+   */
+  async getPublishedArticles(userId, page, pageSize) {
+    const offset = (page - 1) * pageSize;
+
+    // 获取总数
+    const [countResult] = await pool.query(
+      "SELECT COUNT(*) as total FROM articles WHERE user_id = ? AND status = 1",
+      [userId],
+    );
+
+    // 获取文章列表
+    const [articles] = await pool.query(
+      `
+    SELECT 
+      a.id as articleId,
+      a.title,
+      a.cover,
+      a.read_count as readCount,
+      a.like_count as likeCount,
+      a.collect_count as collectCount,
+      a.create_time as createTime,
+      c.name as categoryName
+    FROM articles a
+    LEFT JOIN categories c ON a.category_id = c.id
+    WHERE a.user_id = ? AND a.status = 1
+    ORDER BY a.create_time DESC
+    LIMIT ? OFFSET ?
+  `,
+      [userId, pageSize, offset],
+    );
+
+    return {
+      total: countResult[0].total,
+      list: articles.map((article) => ({
+        ...article,
+        createTime: this.formatDateTime(article.createTime),
+      })),
+    };
+  }
+
+  /**
+   * 获取用户收藏的文章（分页）
+   */
+  async getCollectedArticles(userId, page, pageSize) {
+    const offset = (page - 1) * pageSize;
+
+    // 获取总数
+    const [countResult] = await pool.query(
+      "SELECT COUNT(*) as total FROM article_collections WHERE user_id = ?",
+      [userId],
+    );
+
+    // 获取收藏文章列表
+    const [articles] = await pool.query(
+      `
+    SELECT 
+      a.id as articleId,
+      a.title,
+      a.cover,
+      u.nickname as authorNickname,
+      a.create_time as createTime,
+      ac.create_time as collectTime
+    FROM article_collections ac
+    INNER JOIN articles a ON ac.article_id = a.id
+    INNER JOIN users u ON a.user_id = u.id
+    WHERE ac.user_id = ? AND a.status = 1
+    ORDER BY ac.create_time DESC
+    LIMIT ? OFFSET ?
+  `,
+      [userId, pageSize, offset],
+    );
+
+    return {
+      total: countResult[0].total,
+      list: articles.map((article) => ({
+        ...article,
+        createTime: this.formatDateTime(article.createTime),
+        collectTime: this.formatDateTime(article.collectTime),
+      })),
+    };
+  }
+
+  /**
+   * 获取用户点赞的文章（分页）
+   */
+  async getLikedArticles(userId, page, pageSize) {
+    const offset = (page - 1) * pageSize;
+
+    // 获取总数
+    const [countResult] = await pool.query(
+      "SELECT COUNT(*) as total FROM article_likes WHERE user_id = ?",
+      [userId],
+    );
+
+    // 获取点赞文章列表
+    const [articles] = await pool.query(
+      `
+    SELECT 
+      a.id as articleId,
+      a.title,
+      a.cover,
+      u.nickname as authorNickname,
+      al.create_time as likeTime
+    FROM article_likes al
+    INNER JOIN articles a ON al.article_id = a.id
+    INNER JOIN users u ON a.user_id = u.id
+    WHERE al.user_id = ? AND a.status = 1
+    ORDER BY al.create_time DESC
+    LIMIT ? OFFSET ?
+  `,
+      [userId, pageSize, offset],
+    );
+
+    return {
+      total: countResult[0].total,
+      list: articles.map((article) => ({
+        ...article,
+        likeTime: this.formatDateTime(article.likeTime),
+      })),
+    };
+  }
+
+  /**
+   * 获取用户发布的评论（分页）
+   */
+  async getUserComments(userId, page, pageSize) {
+    const offset = (page - 1) * pageSize;
+
+    // 获取总数
+    const [countResult] = await pool.query(
+      "SELECT COUNT(*) as total FROM comments WHERE user_id = ?",
+      [userId],
+    );
+
+    // 获取评论列表
+    const [comments] = await pool.query(
+      `
+    SELECT 
+      c.id as commentId,
+      c.content,
+      c.create_time as createTime,
+      a.title as articleTitle
+    FROM comments c
+    INNER JOIN articles a ON c.article_id = a.id
+    WHERE c.user_id = ?
+    ORDER BY c.create_time DESC
+    LIMIT ? OFFSET ?
+  `,
+      [userId, pageSize, offset],
+    );
+
+    return {
+      total: countResult[0].total,
+      list: comments.map((comment) => ({
+        ...comment,
+        createTime: this.formatDateTime(comment.createTime),
+      })),
+    };
+  }
+
+  /**
+   * 格式化日期时间
+   */
+  formatDateTime(date) {
+    if (!date) return null;
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    const hours = String(d.getHours()).padStart(2, "0");
+    const minutes = String(d.getMinutes()).padStart(2, "0");
+    const seconds = String(d.getSeconds()).padStart(2, "0");
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  }
 }
 
 module.exports = new UserService();
