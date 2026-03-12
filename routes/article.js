@@ -77,6 +77,13 @@ router.post(
   strictAuthMiddleware,
   ArticleController.uploadCover,
 );
+// 删除已上传的封面图片
+router.delete(
+  "/upload/cover",
+  strictAuthMiddleware,
+  validate(deleteCoverValidator),
+  ArticleController.deleteCover,
+);
 
 // 创建文章
 router.post(

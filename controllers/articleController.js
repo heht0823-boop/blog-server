@@ -31,6 +31,45 @@ class ArticleController {
     });
   });
   /**
+   * 删除已上传的封面图片
+   */
+  deleteCover = asyncHandler(async (req, res, next) => {
+    try {
+      // 添加用户认证检查
+      if (!req.user) {
+        return errorResponse(res, null, "用户未认证", 401);
+      }
+
+      const { filename } = req.body;
+
+      // 验证文件名参数
+      if (!filename) {
+        return errorResponse(res, null, "文件名不能为空", 400);
+      }
+
+      // 防止路径遍历攻击
+      const safeFilename = path.basename(filename);
+      const uploadDir = process.env.UPLOAD_DIR || "./public/uploads";
+      const absoluteUploadDir = path.resolve(__dirname, uploadDir);
+      const filePath = path.join(absoluteUploadDir, safeFilename);
+
+      // 检查文件是否存在
+      if (!fs.existsSync(filePath)) {
+        return errorResponse(res, null, "文件不存在", 404);
+      }
+
+      // 删除文件
+      fs.unlinkSync(filePath);
+
+      successResponse(res, null, "封面图片删除成功");
+    } catch (err) {
+      if (err.code === "ENOENT") {
+        return errorResponse(res, null, "文件不存在", 404);
+      }
+      next(err);
+    }
+  });
+  /**
    * 创建文章
    */
   createArticle = asyncHandler(async (req, res, next) => {

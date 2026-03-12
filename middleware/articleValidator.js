@@ -105,6 +105,17 @@ const articleTagValidator = [
       return true;
     }),
 ];
+// ===== 删除封面验证 =====
+const deleteCoverValidator = [
+  body("filename")
+    .exists()
+    .withMessage("文件名不能为空")
+    .trim()
+    .notEmpty()
+    .withMessage("文件名不能为空")
+    .matches(/^[a-zA-Z0-9_-]+\.(jpg|jpeg|png|gif|webp)$/i)
+    .withMessage("文件名格式不正确"),
+];
 
 module.exports = {
   articleIdValidator,
@@ -113,4 +124,5 @@ module.exports = {
   articleQueryValidator,
   articleSearchValidator,
   articleTagValidator,
+  deleteCoverValidator,
 };
