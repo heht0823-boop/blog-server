@@ -270,26 +270,6 @@ class UserController {
 
     successResponse(res, profile, "获取用户主页信息成功");
   });
-  /**
-   * 获取用户待审核文章
-   */
-  getPendingArticles = asyncHandler(async (req, res, next) => {
-    const { userId } = req.params;
-    const { page = 1, pageSize = 10 } = req.query;
-
-    // 安全校验：用户只能查看自己的待审核文章
-    if (parseInt(userId) !== req.user.id) {
-      return errorResponse(res, null, "无权查看他人的待审核文章", 403);
-    }
-
-    const result = await userService.getPendingArticles(
-      parseInt(userId),
-      parseInt(page),
-      parseInt(pageSize),
-    );
-
-    successResponse(res, result, "获取待审核文章成功");
-  });
 }
 
 module.exports = new UserController();

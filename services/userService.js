@@ -465,49 +465,6 @@ class UserService {
     const seconds = String(d.getSeconds()).padStart(2, "0");
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
   }
-  javascript;
-  // 在 UserService 类中添加新方法
-  /**
-   * 获取用户待审核的文章（分页）
-   */
-  async getPendingArticles(userId, page, pageSize) {
-    const offset = (page - 1) * pageSize;
-
-    // 获取总数
-    const [countResult] = await pool.query(
-      "SELECT COUNT(*) as total FROM articles WHERE user_id = ? AND status = 0",
-      [userId],
-    );
-
-    // 获取文章列表
-    const [articles] = await pool.query(
-      `
-    SELECT 
-      a.id as articleId,
-      a.title,
-      a.cover,
-      a.read_count as readCount,
-      a.like_count as likeCount,
-      a.collect_count as collectCount,
-      a.create_time as createTime,
-      c.name as categoryName
-    FROM articles a
-    LEFT JOIN categories c ON a.category_id = c.id
-    WHERE a.user_id = ? AND a.status = 0
-    ORDER BY a.create_time DESC
-    LIMIT ? OFFSET ?
-  `,
-      [userId, pageSize, offset],
-    );
-
-    return {
-      total: countResult[0].total,
-      list: articles.map((article) => ({
-        ...article,
-        createTime: this.formatDateTime(article.createTime),
-      })),
-    };
-  }
 }
 
 module.exports = new UserService();

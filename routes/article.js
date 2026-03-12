@@ -13,6 +13,7 @@ const {
   articleSearchValidator,
   articleTagValidator,
   deleteCoverValidator,
+  pendingArticlesValidator,
 } = require("../middleware/articleValidator");
 const { paginationValidator } = require("../middleware/userValidator");
 const { authMiddleware, strictAuthMiddleware } = require("../middleware/auth");
@@ -92,6 +93,13 @@ router.post(
   strictAuthMiddleware,
   validate(articleCreateValidator),
   ArticleController.createArticle,
+);
+// 获取用户待审核文章
+router.get(
+  "/:userId/pending-articles",
+  authMiddleware,
+  validate(pendingArticlesValidator),
+  ArticleController.getPendingArticles,
 );
 
 // ===== 管理员接口 =====

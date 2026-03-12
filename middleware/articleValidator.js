@@ -124,6 +124,22 @@ const deleteCoverValidator = [
       return true;
     }),
 ];
+// 添加待审核文章参数验证
+const pendingArticlesValidator = [
+  param("userId").isInt({ min: 1 }).withMessage("用户 ID 必须是正整数"),
+
+  query("page")
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage("页码必须是正整数")
+    .toInt(),
+
+  query("pageSize")
+    .optional()
+    .isInt({ min: 1, max: 100 })
+    .withMessage("每页条数必须在 1-100 之间")
+    .toInt(),
+];
 module.exports = {
   articleIdValidator,
   articleCreateValidator,
@@ -132,4 +148,5 @@ module.exports = {
   articleSearchValidator,
   articleTagValidator,
   deleteCoverValidator,
+  pendingArticlesValidator,
 };
