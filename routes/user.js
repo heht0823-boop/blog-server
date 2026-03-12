@@ -95,6 +95,7 @@ router.delete(
 // ===== 用户主页接口（公开访问）=====
 router.get(
   "/:userId/homepage",
+  authMiddleware,
   validate(userProfilePageValidator),
   UserController.getUserProfilePage,
 );
