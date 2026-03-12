@@ -13,7 +13,8 @@ const {
   userIdValidator,
   paginationValidator,
   searchValidator,
-  userProfilePageValidator, // 新增导入
+  userProfilePageValidator,
+  pendingArticlesValidator,
 } = require("../middleware/userValidator");
 const {
   authMiddleware,
@@ -74,6 +75,13 @@ router.put(
   UserController.updatePassword,
 );
 router.post("/me/avatar", authMiddleware, UserController.uploadAvatar);
+// 获取用户待审核文章
+router.get(
+  "/:userId/pending-articles",
+  authMiddleware,
+  validate(pendingArticlesValidator),
+  UserController.getPendingArticles,
+);
 
 // ===== 管理员接口 =====
 router.get(
