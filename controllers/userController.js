@@ -251,14 +251,14 @@ class UserController {
    * 获取用户主页信息
    */
   getUserProfilePage = asyncHandler(async (req, res, next) => {
-    const { userId } = req.params;
+    const { id } = req.params;
     const { page = 1, pageSize = 10 } = req.query;
 
     // 当前登录用户 ID（用于权限判断，可选）
     const currentUserId = req.user?.id || null;
 
     const profile = await userService.getUserProfilePage(
-      userId,
+      id,
       currentUserId,
       parseInt(page),
       parseInt(pageSize),
