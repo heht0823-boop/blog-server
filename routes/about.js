@@ -1,6 +1,6 @@
 const express = require("express");
 const { validate } = require("../middleware/validator");
-const { authMiddleware, strictAuthMiddleware } = require("../middleware/auth");
+const { strictAuthMiddleware } = require("../middleware/auth");
 const { adminMiddleware } = require("../middleware/permission");
 const {
   createMessage,
@@ -13,21 +13,28 @@ const {
 
 const router = express.Router();
 
-// ===== 留言相关接口 =====
-// 创建留言（可选认证，游客可留言）
+// ===== 留言相关接口（全部需要登录）=====
+// 创建留言（必须登录）
 router.post(
   "/message",
-  authMiddleware,
+  strictAuthMiddleware,
   validate("createMessage"),
   createMessage,
 );
-// 获取留言列表（公开）
-router.get("/message", validate("getMessages"), getMessages);
-// 删除留言（需要管理员权限）
+
+// 获取留言列表（必须登录，普通用户获取自己的，管理员获取全部）
+router.get(
+  "/message",
+  strictAuthMiddleware,
+  validate("getMessages"),
+  getMessages,
+);
+
+// 删除留言（必须登录，只有留言所有者或管理员可删除）
 router.delete(
   "/message/:id",
   strictAuthMiddleware,
-  adminMiddleware,
+  validate("deleteMessage"),
   deleteMessage,
 );
 
@@ -39,6 +46,7 @@ router.post(
   validate("createChat"),
   createChat,
 );
+
 // 获取对话历史（必须登录，只能查看自己的）
 router.get(
   "/ai/chat/history",
@@ -46,6 +54,7 @@ router.get(
   validate("getChatHistory"),
   getChatHistory,
 );
+
 // 清空对话历史（必须登录，只能清空自己的）
 router.delete(
   "/ai/chat/history",

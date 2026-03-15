@@ -9,13 +9,14 @@ const {
   addChat,
   fetchChatHistory,
   deleteChatHistory,
+  verifyMessageOwnership,
 } = require("../services/about");
 const { callDoubaoAI } = require("../services/doubao");
 
-// 创建留言
+// 创建留言（必须登录）
 exports.createMessage = async (req, res) => {
   try {
-    const userId = req.user ? req.user.id : null;
+    const userId = req.user.id; // ✅ 必须登录，直接获取
     const data = await addMessage({ ...req.body, user_id: userId });
     successResponse(res, data, "留言创建成功");
   } catch (err) {
@@ -23,27 +24,51 @@ exports.createMessage = async (req, res) => {
   }
 };
 
-// 获取留言列表
+// 获取留言列表（普通用户获取自己的，管理员获取全部）
 exports.getMessages = async (req, res) => {
   try {
-    const data = await fetchMessages(req.query);
+    const { page, pageSize } = req.query;
+    const userId = req.user.id;
+    const isAdmin = req.user.role === 1;
+
+    // 普通用户只能查看自己的留言，管理员可查看全部
+    const filterUserId = isAdmin ? null : userId;
+
+    const data = await fetchMessages({
+      page,
+      pageSize,
+      user_id: filterUserId,
+    });
     successResponse(res, data, "留言列表获取成功");
   } catch (err) {
     errorResponse(res, err, "留言列表获取失败");
   }
 };
 
-// 删除留言
+// 删除留言（只有留言所有者或管理员可删除）
 exports.deleteMessage = async (req, res) => {
   try {
-    await removeMessage(req.params.id);
+    const userId = req.user.id;
+    const isAdmin = req.user.role === 1;
+    const { id } = req.params;
+
+    // 验证留言所有权
+    await verifyMessageOwnership(id, userId, isAdmin ? "admin" : "user");
+
+    await removeMessage(id);
     successResponse(res, null, "留言删除成功");
   } catch (err) {
+    if (err.message === "无权操作此留言") {
+      return errorResponse(res, null, "权限不足", 403);
+    }
+    if (err.message === "留言不存在") {
+      return errorResponse(res, null, "留言不存在", 404);
+    }
     errorResponse(res, err, "留言删除失败");
   }
 };
 
-// AI 对话（合并修复版）
+// AI 对话（必须登录）
 exports.createChat = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -82,7 +107,7 @@ exports.createChat = async (req, res) => {
   }
 };
 
-// 获取对话历史
+// 获取对话历史（必须登录，只能查看自己的）
 exports.getChatHistory = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -94,7 +119,7 @@ exports.getChatHistory = async (req, res) => {
   }
 };
 
-// 清空对话历史
+// 清空对话历史（必须登录，只能清空自己的）
 exports.clearChatHistory = async (req, res) => {
   try {
     const userId = req.user.id;

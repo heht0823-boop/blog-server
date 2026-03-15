@@ -1,5 +1,5 @@
 // middleware/aboutValidator.js
-const { body, query } = require("express-validator");
+const { body, query, param } = require("express-validator");
 
 exports.createMessage = [
   body("content").trim().notEmpty().withMessage("留言内容不能为空"),
@@ -17,10 +17,10 @@ exports.getMessages = [
     .optional()
     .isInt({ min: 1, max: 100 })
     .withMessage("每页数量必须在 1-100 之间"),
-  query("status")
-    .optional()
-    .isInt({ min: 0, max: 1 })
-    .withMessage("状态值必须是 0 或 1"),
+];
+
+exports.deleteMessage = [
+  param("id").isInt({ min: 1 }).withMessage("留言 ID 必须是正整数"),
 ];
 
 exports.createChat = [
