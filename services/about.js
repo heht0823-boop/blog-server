@@ -1,4 +1,4 @@
-const pool = require("../config/db");
+const { pool } = require("../config/db");
 
 // 添加留言
 exports.addMessage = async ({ content, nickname, avatar, user_id = null }) => {
