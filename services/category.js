@@ -169,20 +169,44 @@ class CategoryService {
    * 删除分类
    */
   async deleteCategory(categoryId) {
-    // 检查是否有文章属于这个分类
-    const [articleCount] = await pool.query(
-      "SELECT COUNT(*) as count FROM articles WHERE category_id = ?",
-      [categoryId],
-    );
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
 
-    if (articleCount[0].count > 0) {
-      throw new Error("该分类下还有文章，无法删除");
+      // 1. 检查分类是否存在
+      const [categories] = await connection.execute(
+        "SELECT id FROM categories WHERE id = ?",
+        [categoryId],
+      );
+
+      if (categories.length === 0) {
+        throw new Error("分类不存在");
+      }
+
+      // 2. 检查是否有文章属于这个分类
+      const [articleCount] = await connection.execute(
+        "SELECT COUNT(*) as count FROM articles WHERE category_id = ?",
+        [categoryId],
+      );
+
+      if (articleCount[0].count > 0) {
+        throw new Error("该分类下还有文章，无法删除");
+      }
+
+      // 3. 删除分类
+      const [result] = await connection.execute(
+        "DELETE FROM categories WHERE id = ?",
+        [categoryId],
+      );
+
+      await connection.commit();
+      return result.affectedRows > 0;
+    } catch (err) {
+      await connection.rollback();
+      throw err;
+    } finally {
+      connection.release();
     }
-
-    const [result] = await pool.query("DELETE FROM categories WHERE id = ?", [
-      categoryId,
-    ]);
-    return result.affectedRows > 0;
   }
 }
 

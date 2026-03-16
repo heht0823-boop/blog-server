@@ -159,18 +159,49 @@ class TagService {
    * 删除标签
    */
   async deleteTag(tagId) {
-    // 检查是否有文章使用了这个标签
-    const [articleCount] = await pool.query(
-      "SELECT COUNT(*) as count FROM article_tags WHERE tag_id = ?",
-      [tagId],
-    );
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
 
-    if (articleCount[0].count > 0) {
-      throw new Error("该标签已被文章使用，无法删除");
+      // 1. 检查标签是否存在
+      const [tags] = await connection.execute(
+        "SELECT id FROM tags WHERE id = ?",
+        [tagId],
+      );
+
+      if (tags.length === 0) {
+        throw new Error("标签不存在");
+      }
+
+      // 2. 检查是否有文章使用了这个标签
+      const [articleCount] = await connection.execute(
+        "SELECT COUNT(*) as count FROM article_tags WHERE tag_id = ?",
+        [tagId],
+      );
+
+      if (articleCount[0].count > 0) {
+        throw new Error("该标签已被文章使用，无法删除");
+      }
+
+      // 3. 显式删除标签关联（双重保险）
+      await connection.execute("DELETE FROM article_tags WHERE tag_id = ?", [
+        tagId,
+      ]);
+
+      // 4. 删除标签
+      const [result] = await connection.execute(
+        "DELETE FROM tags WHERE id = ?",
+        [tagId],
+      );
+
+      await connection.commit();
+      return result.affectedRows > 0;
+    } catch (err) {
+      await connection.rollback();
+      throw err;
+    } finally {
+      connection.release();
     }
-
-    const [result] = await pool.query("DELETE FROM tags WHERE id = ?", [tagId]);
-    return result.affectedRows > 0;
   }
 }
 

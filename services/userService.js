@@ -188,11 +188,68 @@ class UserService {
    * 删除用户
    */
   async deleteUser(userId) {
-    const [result] = await pool.query("DELETE FROM users WHERE id = ?", [
-      userId,
-    ]);
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
 
-    return result.affectedRows > 0;
+      // 1. 检查用户是否存在
+      const [users] = await connection.execute(
+        "SELECT id FROM users WHERE id = ?",
+        [userId],
+      );
+
+      if (users.length === 0) {
+        throw new Error("用户不存在");
+      }
+
+      // 2. 显式删除关联数据
+      // 删除用户发布的文章（会级联删除文章相关数据）
+      await connection.execute("DELETE FROM articles WHERE user_id = ?", [
+        userId,
+      ]);
+
+      // 删除用户的点赞记录
+      await connection.execute("DELETE FROM article_likes WHERE user_id = ?", [
+        userId,
+      ]);
+
+      // 删除用户的收藏记录
+      await connection.execute(
+        "DELETE FROM article_collections WHERE user_id = ?",
+        [userId],
+      );
+
+      // 删除用户的评论
+      await connection.execute("DELETE FROM comments WHERE user_id = ?", [
+        userId,
+      ]);
+
+      // 删除用户的留言（设置为 NULL 或刪除）
+      await connection.execute(
+        "UPDATE messages SET user_id = NULL WHERE user_id = ?",
+        [userId],
+      );
+
+      // 删除用户的 AI 对话记录（设置为 NULL 或刪除）
+      await connection.execute(
+        "UPDATE ai_chats SET user_id = NULL WHERE user_id = ?",
+        [userId],
+      );
+
+      // 3. 删除用户
+      const [result] = await connection.execute(
+        "DELETE FROM users WHERE id = ?",
+        [userId],
+      );
+
+      await connection.commit();
+      return result.affectedRows > 0;
+    } catch (err) {
+      await connection.rollback();
+      throw err;
+    } finally {
+      connection.release();
+    }
   }
   /**
    * 获取用户主页信息

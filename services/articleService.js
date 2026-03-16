@@ -226,14 +226,57 @@ class ArticleService {
    * 删除文章
    */
   async deleteArticle(articleId) {
+    const connection = await pool.getConnection();
     try {
-      const [result] = await pool.query("DELETE FROM articles WHERE id = ?", [
+      await connection.beginTransaction();
+
+      // 1. 检查文章是否存在
+      const [articles] = await connection.execute(
+        "SELECT id, user_id, like_count, collect_count FROM articles WHERE id = ?",
+        [articleId],
+      );
+
+      if (articles.length === 0) {
+        throw new Error("文章不存在");
+      }
+
+      // 2. 显式删除关联数据（确保数据一致性）
+      // 删除文章标签关联
+      await connection.execute(
+        "DELETE FROM article_tags WHERE article_id = ?",
+        [articleId],
+      );
+
+      // 删除文章点赞记录
+      await connection.execute(
+        "DELETE FROM article_likes WHERE article_id = ?",
+        [articleId],
+      );
+
+      // 删除文章收藏记录
+      await connection.execute(
+        "DELETE FROM article_collections WHERE article_id = ?",
+        [articleId],
+      );
+
+      // 删除文章评论（会级联删除子评论）
+      await connection.execute("DELETE FROM comments WHERE article_id = ?", [
         articleId,
       ]);
 
+      // 3. 删除文章本身
+      const [result] = await connection.execute(
+        "DELETE FROM articles WHERE id = ?",
+        [articleId],
+      );
+
+      await connection.commit();
       return result.affectedRows > 0;
     } catch (err) {
+      await connection.rollback();
       throw err;
+    } finally {
+      connection.release();
     }
   }
 
