@@ -45,7 +45,7 @@ const successResponse = (
   res,
   data = null,
   msg = "请求成功",
-  statusCode = 200
+  statusCode = 200,
 ) => {
   return res.status(statusCode).json({
     code: statusCode,
@@ -63,7 +63,7 @@ const errorResponse = (
   res,
   error = null,
   msg = "请求失败",
-  statusCode = 500
+  statusCode = 500,
 ) => {
   return res.status(statusCode).json({
     code: statusCode,
@@ -92,6 +92,15 @@ const errorHandler = (err, req, res, next) => {
   let statusCode = err.statusCode || 500;
   let msg = err.message || "服务器内部错误";
   let code = err.code || statusCode;
+  if (
+    err.code === "TOKEN_EXPIRED" ||
+    err.code === "TOKEN_INVALID" ||
+    err.code === "TOKEN_NOT_BEFORE" ||
+    err.code === "AUTHENTICATION_ERROR"
+  ) {
+    statusCode = 401;
+    code = err.code;
+  }
 
   // 特定错误处理
   if (err.name === "ValidationError") {

@@ -40,7 +40,7 @@ class JwtUtil {
         issuer: this.issuer,
         audience: this.audience,
         subject: String(payload.id),
-      }
+      },
     );
 
     return token;
@@ -66,7 +66,7 @@ class JwtUtil {
         issuer: this.issuer,
         audience: this.audience,
         subject: String(payload.id),
-      }
+      },
     );
 
     return token;
@@ -168,6 +168,7 @@ class JwtUtil {
     if (err.name === "TokenExpiredError") {
       const customErr = new Error(`${tokenType} 已过期`);
       customErr.code = "TOKEN_EXPIRED";
+      customErr.statusCode = 401;
       customErr.expiredAt = err.expiredAt;
       throw customErr;
     }
@@ -175,12 +176,14 @@ class JwtUtil {
     if (err.name === "JsonWebTokenError") {
       const customErr = new Error(`${tokenType} 无效`);
       customErr.code = "TOKEN_INVALID";
+      customErr.statusCode = 401;
       throw customErr;
     }
 
     if (err.name === "NotBeforeError") {
       const customErr = new Error(`${tokenType} 还未生效`);
       customErr.code = "TOKEN_NOT_BEFORE";
+      customErr.statusCode = 401;
       throw customErr;
     }
 
