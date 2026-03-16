@@ -4,7 +4,7 @@ const { AuthenticationError } = require("./errorHandler");
 /**
  * 认证中间件（验证 accessToken）
  */
-const authMiddleware = (req, next) => {
+const authMiddleware = (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
@@ -38,7 +38,7 @@ const authMiddleware = (req, next) => {
 };
 
 // 创建严格的认证中间件，用于必须认证的接口
-const strictAuthMiddleware = (req, next) => {
+const strictAuthMiddleware = (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
