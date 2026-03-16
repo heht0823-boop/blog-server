@@ -24,15 +24,17 @@ exports.createMessage = async (req, res) => {
   }
 };
 
-// 获取留言列表（普通用户获取自己的，管理员获取全部）
+// 获取留言列表（所有人可查看所有留言）
 exports.getMessages = async (req, res) => {
   try {
     const { page, pageSize } = req.query;
-    const userId = req.user.id;
-    const isAdmin = req.user.role === 1;
 
-    // 普通用户只能查看自己的留言，管理员可查看全部
-    const filterUserId = isAdmin ? null : userId;
+    // ✅ 支持未登录用户
+    const userId = req.user?.id || null;
+    const isAdmin = req.user?.role === 1;
+
+    // ✅ 所有人都查看所有留言（不再根据用户 ID 过滤）
+    const filterUserId = null;
 
     const data = await fetchMessages({
       page,

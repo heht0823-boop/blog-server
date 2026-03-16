@@ -1,6 +1,6 @@
 const express = require("express");
 const { validate } = require("../middleware/validator");
-const { strictAuthMiddleware } = require("../middleware/auth");
+const { authMiddleware, strictAuthMiddleware } = require("../middleware/auth");
 const { adminMiddleware } = require("../middleware/permission");
 const {
   createMessage,
@@ -13,7 +13,7 @@ const {
 
 const router = express.Router();
 
-// ===== 留言相关接口（全部需要登录）=====
+// ===== 留言相关接口 =====
 // 创建留言（必须登录）
 router.post(
   "/message",
@@ -22,15 +22,15 @@ router.post(
   createMessage,
 );
 
-// 获取留言列表（必须登录，普通用户获取自己的，管理员获取全部）
+// 获取留言列表（✅ 可选认证，所有人都可查看所有留言）
 router.get(
   "/message",
-  strictAuthMiddleware,
+  authMiddleware, // ✅ 改为可选认证
   validate("getMessages"),
   getMessages,
 );
 
-// 删除留言（必须登录，只有留言所有者或管理员可删除）
+// 删除留言（必须登录，普通用户只删自己的，管理员可删所有）
 router.delete(
   "/message/:id",
   strictAuthMiddleware,
