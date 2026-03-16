@@ -18,7 +18,14 @@ exports.getMessages = [
     .isInt({ min: 1, max: 100 })
     .withMessage("每页数量必须在 1-100 之间"),
 ];
-
+// 新增：获取会话列表验证
+exports.getChatSessions = [
+  query("page").optional().isInt({ min: 1 }).withMessage("页码必须是正整数"),
+  query("pageSize")
+    .optional()
+    .isInt({ min: 1, max: 50 })
+    .withMessage("每页数量必须在 1-50 之间"),
+];
 exports.deleteMessage = [
   param("id").isInt({ min: 1 }).withMessage("留言 ID 必须是正整数"),
 ];

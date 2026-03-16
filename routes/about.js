@@ -8,6 +8,7 @@ const {
   deleteMessage,
   createChat,
   getChatHistory,
+  getChatSessions,
   clearChatHistory,
 } = require("../controllers/aboutController");
 
@@ -45,6 +46,13 @@ router.post(
   strictAuthMiddleware,
   validate("createChat"),
   createChat,
+);
+// ✅ 新增：获取 AI 会话列表（用于历史记录列表展示）
+router.get(
+  "/ai/chat/sessions",
+  strictAuthMiddleware,
+  validate("getChatSessions"),
+  getChatSessions,
 );
 
 // 获取对话历史（必须登录，只能查看自己的）

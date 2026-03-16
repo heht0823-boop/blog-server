@@ -8,6 +8,7 @@ const {
   removeMessage,
   addChat,
   fetchChatHistory,
+  fetchChatSessions,
   deleteChatHistory,
   verifyMessageOwnership,
 } = require("../services/about");
@@ -106,6 +107,23 @@ exports.createChat = async (req, res) => {
     );
   } catch (err) {
     errorResponse(res, err, "对话创建失败");
+  }
+};
+// ✅ 新增：获取 AI 会话列表（用于历史记录列表展示）
+exports.getChatSessions = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { page = 1, pageSize = 20 } = req.query;
+
+    const data = await fetchChatSessions({
+      page: parseInt(page),
+      pageSize: parseInt(pageSize),
+      user_id: userId,
+    });
+
+    successResponse(res, data, "会话列表获取成功");
+  } catch (err) {
+    errorResponse(res, err, "会话列表获取失败");
   }
 };
 

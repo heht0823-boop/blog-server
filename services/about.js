@@ -82,6 +82,54 @@ exports.fetchChatHistory = async (session_id, user_id) => {
   return rows;
 };
 
+// ✅ 新增：获取用户所有会话列表（用于历史记录列表展示）
+exports.fetchChatSessions = async ({ page = 1, pageSize = 20, user_id }) => {
+  const offset = (page - 1) * pageSize;
+
+  // 获取每个会话的最后一条消息和时间
+  const query = `
+    SELECT 
+      session_id,
+      MAX(create_time) as last_message_time,
+      (SELECT content FROM ai_chats c2 
+       WHERE c2.session_id = c1.session_id AND c2.user_id = c1.user_id 
+       ORDER BY create_time DESC LIMIT 1) as last_message,
+      (SELECT role FROM ai_chats c3 
+       WHERE c3.session_id = c1.session_id AND c3.user_id = c1.user_id 
+       ORDER BY create_time DESC LIMIT 1) as last_role,
+      MIN(create_time) as create_time,
+      COUNT(*) as message_count
+    FROM ai_chats c1
+    WHERE user_id = ?
+    GROUP BY session_id
+    ORDER BY last_message_time DESC
+    LIMIT ? OFFSET ?
+  `;
+
+  const countQuery = `
+    SELECT COUNT(DISTINCT session_id) as total 
+    FROM ai_chats 
+    WHERE user_id = ?
+  `;
+
+  const [sessions] = await pool.query(query, [user_id, pageSize, offset]);
+  const [[{ total }]] = await pool.query(countQuery, [user_id]);
+
+  return {
+    total,
+    page: parseInt(page),
+    pageSize: parseInt(pageSize),
+    sessions: sessions.map((s) => ({
+      session_id: s.session_id,
+      last_message: s.last_message,
+      last_role: s.last_role,
+      last_message_time: s.last_message_time,
+      create_time: s.create_time,
+      message_count: s.message_count,
+    })),
+  };
+};
+
 // 清空对话历史
 exports.deleteChatHistory = async (session_id, user_id) => {
   await pool.query(
