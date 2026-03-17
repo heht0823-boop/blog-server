@@ -92,6 +92,8 @@ const errorHandler = (err, req, res, next) => {
   let statusCode = err.statusCode || 500;
   let msg = err.message || "服务器内部错误";
   let code = err.code || statusCode;
+
+  // ✅ 统一处理认证相关错误，确保返回 401
   if (
     err.code === "TOKEN_EXPIRED" ||
     err.code === "TOKEN_INVALID" ||
@@ -117,6 +119,16 @@ const errorHandler = (err, req, res, next) => {
     msg = "服务暂时不可用";
   }
 
+  // ✅ 处理 null/undefined 访问错误（如 req.user.id）
+  if (
+    err instanceof TypeError &&
+    err.message.includes("Cannot read properties of null")
+  ) {
+    statusCode = 401;
+    code = "AUTHENTICATION_ERROR";
+    msg = "用户未认证，请重新登录";
+  }
+
   // 只在开发环境打印错误堆栈
   if (process.env.NODE_ENV === "development" && statusCode >= 500) {
     console.error(`[错误] TraceId: ${req.traceId}\n`, err);
@@ -131,6 +143,7 @@ const errorHandler = (err, req, res, next) => {
     ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
   });
 };
+
 /**
  * 异步路由错误捕获包装器
  */

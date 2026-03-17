@@ -18,6 +18,7 @@ const {
 const {
   authMiddleware,
   refreshTokenMiddleware,
+  strictAuthMiddleware,
 } = require("../middleware/auth");
 const { adminMiddleware } = require("../middleware/permission");
 
@@ -59,26 +60,27 @@ router.post(
 );
 
 // ===== 需要认证的接口 =====
-router.post("/logout", authMiddleware, UserController.logout);
-router.get("/me", authMiddleware, UserController.getCurrentUser);
+// ✅ 改为 strictAuthMiddleware，token 过期返回 401 而非 500
+router.post("/logout", strictAuthMiddleware, UserController.logout);
+router.get("/me", strictAuthMiddleware, UserController.getCurrentUser);
 router.put(
   "/me",
-  authMiddleware,
+  strictAuthMiddleware,
   validate(updateUserValidator),
   UserController.updateUser,
 );
 router.put(
   "/me/password",
-  authMiddleware,
+  strictAuthMiddleware,
   validate(passwordUpdateValidator),
   UserController.updatePassword,
 );
-router.post("/me/avatar", authMiddleware, UserController.uploadAvatar);
+router.post("/me/avatar", strictAuthMiddleware, UserController.uploadAvatar);
 
 // ===== 管理员接口 =====
 router.get(
   "/",
-  authMiddleware,
+  strictAuthMiddleware,
   adminMiddleware,
   validate([...paginationValidator, ...searchValidator]),
   UserController.getAllUsers,
@@ -86,13 +88,13 @@ router.get(
 
 router.delete(
   "/:id",
-  authMiddleware,
+  strictAuthMiddleware,
   adminMiddleware,
   validate(userIdValidator),
   UserController.deleteUser,
 );
 
-// ===== 用户主页接口（公开访问）=====
+// ===== 用户主页接口（公开访问，可选认证）=====
 router.get(
   "/:userId/homepage",
   authMiddleware,

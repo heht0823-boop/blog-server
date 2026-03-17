@@ -2,14 +2,14 @@ const jwtUtil = require("../utils/jwt");
 const { AuthenticationError } = require("./errorHandler");
 
 /**
- * 认证中间件（验证 accessToken）
+ * 认证中间件（验证 accessToken）- 可选认证
+ * token 无效/过期时 req.user = null，允许继续执行
  */
 const authMiddleware = (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
     if (!authHeader) {
-      // 对于可选认证的接口，允许继续处理
       req.user = null;
       return next();
     }
@@ -31,13 +31,16 @@ const authMiddleware = (req, res, next) => {
 
     next();
   } catch (err) {
-    // 即使令牌无效，也允许继续处理（对于可选认证的接口）
+    // token 过期/无效时，允许继续执行（可选认证）
     req.user = null;
     next();
   }
 };
 
-// 创建严格的认证中间件，用于必须认证的接口
+/**
+ * 严格认证中间件 - 必须认证
+ * token 无效/过期时抛出 401 错误
+ */
 const strictAuthMiddleware = (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -62,6 +65,13 @@ const strictAuthMiddleware = (req, res, next) => {
 
     next();
   } catch (err) {
+    // ✅ 确保所有认证错误都返回 401
+    if (!err.statusCode) {
+      err.statusCode = 401;
+    }
+    if (!err.code) {
+      err.code = "AUTHENTICATION_ERROR";
+    }
     next(err);
   }
 };
@@ -87,6 +97,13 @@ const refreshTokenMiddleware = (req, res, next) => {
 
     next();
   } catch (err) {
+    // ✅ 确保所有认证错误都返回 401
+    if (!err.statusCode) {
+      err.statusCode = 401;
+    }
+    if (!err.code) {
+      err.code = "AUTHENTICATION_ERROR";
+    }
     next(err);
   }
 };

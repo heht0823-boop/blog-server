@@ -95,6 +95,11 @@ class UserController {
    * 获取当前用户信息
    */
   getCurrentUser = asyncHandler(async (req, res, next) => {
+    // ✅ 添加空值检查
+    if (!req.user || !req.user.id) {
+      return errorResponse(res, null, "用户未认证，请重新登录", 401);
+    }
+
     const user = await userService.getUserById(req.user.id);
 
     if (!user) {
@@ -120,6 +125,11 @@ class UserController {
    * 更新用户信息
    */
   updateUser = asyncHandler(async (req, res, next) => {
+    // ✅ 添加空值检查
+    if (!req.user || !req.user.id) {
+      return errorResponse(res, null, "用户未认证，请重新登录", 401);
+    }
+
     const { nickname, avatar } = req.body;
 
     const updated = await userService.updateUser(req.user.id, {
@@ -151,6 +161,11 @@ class UserController {
    * 更新用户密码
    */
   updatePassword = asyncHandler(async (req, res, next) => {
+    // ✅ 添加空值检查
+    if (!req.user || !req.user.id) {
+      return errorResponse(res, null, "用户未认证，请重新登录", 401);
+    }
+
     const { oldPassword, newPassword } = req.body;
 
     const updated = await userService.updatePassword(
@@ -216,10 +231,16 @@ class UserController {
 
     successResponse(res, null, "删除成功");
   });
+
   /**
    * 上传头像
    */
   uploadAvatar = asyncHandler(async (req, res, next) => {
+    // ✅ 添加空值检查
+    if (!req.user || !req.user.id) {
+      return errorResponse(res, null, "用户未认证，请重新登录", 401);
+    }
+
     // 使用 multer 处理文件上传
     upload.single("avatar")(req, res, async (err) => {
       if (err) {
@@ -230,7 +251,7 @@ class UserController {
         return errorResponse(res, null, "请选择文件", 400);
       }
 
-      // 构建文件访问URL
+      // 构建文件访问 URL
       const avatarUrl = `${req.protocol}://${req.get("host")}/uploads/${
         req.file.filename
       }`;
@@ -247,6 +268,7 @@ class UserController {
       successResponse(res, { avatar: avatarUrl }, "头像上传成功");
     });
   });
+
   /**
    * 获取用户主页信息
    */
