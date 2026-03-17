@@ -54,7 +54,7 @@ router.post(
 );
 
 router.post(
-  "/refresh-token",
+  "/refreshToken",
   refreshTokenMiddleware,
   UserController.refreshAccessToken,
 );
