@@ -2,16 +2,16 @@ const { pool } = require("../config/db");
 
 class TagService {
   /**
-   * 创建标签（支持单个或批量创建，支持JSON字符串，自动去重）
+   * 创建标签（支持单个或批量创建，支持 JSON 字符串，自动去重）
    */
   async createTag(tagsData) {
-    // 如果是字符串，尝试解析为JSON
+    // 如果是字符串，尝试解析为 JSON
     let parsedData = tagsData;
     if (typeof tagsData === "string") {
       try {
         parsedData = JSON.parse(tagsData);
       } catch (error) {
-        throw new Error("无效的JSON字符串");
+        throw new Error("无效的 JSON 字符串");
       }
     }
 
@@ -55,7 +55,7 @@ class TagService {
 
     // 如果有任何已存在的标签，抛出错误
     if (existingTags.length > 0) {
-      throw new Error(`以下标签已存在: ${existingTags.join(", ")}`);
+      throw new Error(`以下标签已存在：${existingTags.join(", ")}`);
     }
 
     // 如果没有有效的标签需要创建
@@ -80,6 +80,7 @@ class TagService {
       return result.insertId;
     }
   }
+
   /**
    * 获取标签列表（分页可选）
    */
@@ -106,6 +107,15 @@ class TagService {
 
     return { total, tags };
   }
+
+  /**
+   * ✅ 新增：根据 ID 获取标签
+   */
+  async getTagById(tagId) {
+    const [tags] = await pool.query("SELECT * FROM tags WHERE id = ?", [tagId]);
+    return tags[0] || null;
+  }
+
   /**
    * 根据名称获取标签
    */

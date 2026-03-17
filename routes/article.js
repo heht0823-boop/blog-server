@@ -1,4 +1,3 @@
-// routes/article.js
 const express = require("express");
 const router = express.Router();
 const { param, query } = require("express-validator");
@@ -72,6 +71,14 @@ router.get(
   ArticleController.getUserArticles,
 );
 
+// ✅ 获取文章的标签列表（必须放在 /:id 之前！）
+router.get(
+  "/:id/tags",
+  authMiddleware,
+  validate(articleIdValidator),
+  ArticleController.getArticleTags,
+);
+
 // ===== 需要认证的接口 =====
 // 上传文章封面图片
 router.post(
@@ -140,7 +147,7 @@ router.put(
 // 获取文章详情
 router.get(
   "/:id",
-  authMiddleware, // ✅ 改为可选认证，游客也可访问
+  authMiddleware,
   validate(articleIdValidator),
   ArticleController.getArticleDetail,
 );
@@ -160,6 +167,7 @@ router.delete(
   validate(articleIdValidator),
   ArticleController.deleteArticle,
 );
+
 // ===== 点赞相关接口 =====
 
 // 点赞文章
@@ -201,7 +209,7 @@ router.delete(
 // 获取用户点赞的文章
 router.get(
   "/user/:userId/likes",
-  strictAuthMiddleware, // ✅ 改为严格认证
+  strictAuthMiddleware,
   validate([
     param("userId").isInt({ min: 1 }).withMessage("用户 ID 必须是正整数"),
     ...paginationValidator,
@@ -212,7 +220,7 @@ router.get(
 // 获取用户收藏的文章
 router.get(
   "/user/:userId/collections",
-  strictAuthMiddleware, // ✅ 改为严格认证
+  strictAuthMiddleware,
   validate([
     param("userId").isInt({ min: 1 }).withMessage("用户 ID 必须是正整数"),
     ...paginationValidator,

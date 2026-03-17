@@ -13,10 +13,9 @@ const {
 
 class ArticleController {
   /**
-   * ✅ 新增：上传文章封面图片
+   * 上传文章封面图片
    */
   uploadCover = asyncHandler(async (req, res, next) => {
-    // 使用 multer 处理文件上传
     upload.single("cover")(req, res, async (err) => {
       if (err) {
         return errorResponse(res, err, err.message, 400);
@@ -26,12 +25,12 @@ class ArticleController {
         return errorResponse(res, null, "请选择文件", 400);
       }
 
-      // 构建文件访问 URL（使用服务器域名，适配阿里云部署）
       const coverUrl = `${SERVER_DOMAIN}/uploads/${req.file.filename}`;
 
       successResponse(res, { cover: coverUrl }, "封面上传成功");
     });
   });
+
   /**
    * 删除已上传的封面图片
    */
@@ -47,22 +46,13 @@ class ArticleController {
         return errorResponse(res, null, "文件名不能为空", 400);
       }
 
-      // 防止路径遍历攻击
       const safeFilename = path.basename(filename);
-      // ✅ 使用统一导出的 UPLOAD_DIR，不再自己计算路径
       const filePath = path.join(UPLOAD_DIR, safeFilename);
 
-      // 添加调试日志
-      console.log("删除文件路径:", filePath);
-      console.log("文件是否存在:", fs.existsSync(filePath));
-
-      // 检查文件是否存在
       if (!fs.existsSync(filePath)) {
-        console.log("目录内容:", fs.readdirSync(UPLOAD_DIR));
         return errorResponse(res, null, "文件不存在", 404);
       }
 
-      // 删除文件
       fs.unlinkSync(filePath);
 
       successResponse(res, null, "封面图片删除成功");
@@ -73,25 +63,25 @@ class ArticleController {
       next(err);
     }
   });
+
   /**
    * 创建文章
    */
   createArticle = asyncHandler(async (req, res, next) => {
     try {
-      // 添加用户认证检查
       if (!req.user) {
         return errorResponse(res, null, "用户未认证", 401);
       }
 
       const { title, content, cover, categoryId } = req.body;
-      const userId = req.user.id; // 从认证中间件获取用户ID
+      const userId = req.user.id;
 
       const articleId = await articleService.createArticle({
         title,
         content,
         cover,
-        category_id: categoryId, // 注意字段名映射
-        user_id: userId, // 传递用户ID
+        category_id: categoryId,
+        user_id: userId,
       });
 
       successResponse(res, { articleId }, "文章创建成功，等待审核", 201);
@@ -108,18 +98,15 @@ class ArticleController {
    */
   updateArticle = asyncHandler(async (req, res, next) => {
     try {
-      // 添加用户认证检查
       if (!req.user) {
         return errorResponse(res, null, "用户未认证", 401);
       }
 
       const { id } = req.params;
       const { title, content, cover, categoryId, status, isTop } = req.body;
-      // 直接从 req.user 获取用户信息
       const userId = req.user.id;
       const isAdmin = req.user.role === 1;
 
-      // 验证文章所有权
       await articleService.verifyArticleOwnership(
         id,
         userId,
@@ -134,7 +121,6 @@ class ArticleController {
         is_top: isTop,
       };
 
-      // 只有管理员可以修改status字段
       if (status !== undefined) {
         updateData.status = status;
       }
@@ -149,7 +135,6 @@ class ArticleController {
         return errorResponse(res, null, "文章更新失败", 400);
       }
 
-      // 提供更友好的提示信息
       let message = "文章更新成功";
       if (status === 1 && isAdmin) {
         message = "文章已审核通过";
@@ -174,17 +159,14 @@ class ArticleController {
    */
   deleteArticle = asyncHandler(async (req, res, next) => {
     try {
-      // 添加用户认证检查
       if (!req.user) {
         return errorResponse(res, null, "用户未认证", 401);
       }
 
       const { id } = req.params;
-      // 直接从 req.user 获取用户信息
       const userId = req.user.id;
       const isAdmin = req.user.role === 1;
 
-      // 验证文章所有权
       await articleService.verifyArticleOwnership(
         id,
         userId,
@@ -210,16 +192,14 @@ class ArticleController {
   });
 
   /**
-   * 获取文章统计信息（增强版）
+   * 获取文章统计信息
    */
   getArticleStats = asyncHandler(async (req, res, next) => {
     try {
-      // 添加用户认证检查
       if (!req.user) {
         return errorResponse(res, null, "用户未认证", 401);
       }
 
-      // 只有管理员可以访问此接口
       const isAdmin = req.user.role === 1;
       if (!isAdmin) {
         return errorResponse(res, null, "权限不足，仅管理员可访问", 403);
@@ -234,34 +214,29 @@ class ArticleController {
       next(err);
     }
   });
+
   /**
    * 为文章设置标签
    */
   setArticleTags = asyncHandler(async (req, res, next) => {
     try {
-      // 添加用户认证检查
       if (!req.user) {
         return errorResponse(res, null, "用户未认证", 401);
       }
 
       const { id } = req.params;
       const { tagIds } = req.body;
-      // 直接从 req.user 获取用户信息
       const userId = req.user.id;
-      // 统一使用数字形式角色
       const isAdmin = req.user.role === 1;
 
-      // 验证文章所有权
       await articleService.verifyArticleOwnership(
         id,
         userId,
         isAdmin ? "admin" : "user",
       );
 
-      // 先清除原有的标签关联
       await articleService.clearArticleTags(id);
 
-      // 添加新的标签关联
       let successCount = 0;
       const errors = [];
 
@@ -294,29 +269,56 @@ class ArticleController {
   });
 
   /**
+   * ✅ 获取文章的标签列表
+   */
+  getArticleTags = asyncHandler(async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      const isAdmin = req.user && req.user.role === 1;
+      const userRole = isAdmin ? "admin" : "user";
+
+      // 验证文章是否存在
+      const article = await articleService.getArticleById(id, userRole);
+      if (!article) {
+        return errorResponse(res, null, "文章不存在", 404);
+      }
+
+      // 获取文章下的所有标签
+      const tags = await articleService.getArticleTags(id);
+
+      successResponse(
+        res,
+        {
+          articleId: parseInt(id),
+          tags,
+          count: tags.length,
+        },
+        "获取文章标签成功",
+      );
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /**
    * 清除文章标签
    */
   clearArticleTags = asyncHandler(async (req, res, next) => {
     try {
-      // 添加用户认证检查
       if (!req.user) {
         return errorResponse(res, null, "用户未认证", 401);
       }
 
-      const { id } = req.params; // 从URL参数获取文章ID
-      // 直接从 req.user 获取用户信息
+      const { id } = req.params;
       const userId = req.user.id;
-      // 统一使用数字形式角色
       const isAdmin = req.user.role === 1;
 
-      // 验证文章所有权
       await articleService.verifyArticleOwnership(
         id,
         userId,
         isAdmin ? "admin" : "user",
       );
 
-      // 清除标签关联
       await articleService.clearArticleTags(id);
 
       successResponse(res, null, "标签清除成功");
@@ -364,6 +366,7 @@ class ArticleController {
       next(err);
     }
   });
+
   /**
    * 获取文章列表
    */
@@ -371,16 +374,13 @@ class ArticleController {
     try {
       const { page = 1, pageSize = 10, categoryId, tagId, status } = req.query;
 
-      // 统一使用字符串形式判断角色
       const isAdmin = req.user && req.user.role === 1;
       const userRole = isAdmin ? "admin" : "user";
 
-      // 处理过滤条件
       const filters = {};
       if (categoryId) filters.category_id = parseInt(categoryId);
       if (tagId) filters.tag_id = parseInt(tagId);
 
-      // 管理员可以使用status参数进行过滤
       if (isAdmin && status !== undefined) {
         filters.status = parseInt(status);
       }
@@ -441,15 +441,13 @@ class ArticleController {
         return errorResponse(res, null, "搜索关键词不能为空", 400);
       }
 
-      // 清理关键词，去除首尾引号和多余空格
       keyword = keyword.trim().replace(/^["']+|["']+$/g, "");
 
-      // 添加关键词长度验证
       if (keyword.length < 1 || keyword.length > 50) {
         return errorResponse(
           res,
           null,
-          "搜索关键词长度应在1-50个字符之间",
+          "搜索关键词长度应在 1-50 个字符之间",
           400,
         );
       }
@@ -476,6 +474,7 @@ class ArticleController {
       next(err);
     }
   });
+
   /**
    * 获取置顶文章列表
    */
@@ -513,8 +512,9 @@ class ArticleController {
       next(err);
     }
   });
+
   /**
-   * 增加文章浏览数（公开接口，前端访问时自动调用）
+   * 增加文章浏览数
    */
   incrementViews = asyncHandler(async (req, res, next) => {
     try {
@@ -525,12 +525,12 @@ class ArticleController {
         return errorResponse(res, null, "文章不存在", 404);
       }
 
-      // 不返回敏感信息，只返回成功状态
       successResponse(res, null, "浏览数已更新");
     } catch (err) {
       next(err);
     }
   });
+
   /**
    * 置顶文章
    */
@@ -552,6 +552,7 @@ class ArticleController {
       next(err);
     }
   });
+
   /**
    * 点赞文章
    */
@@ -659,15 +660,9 @@ class ArticleController {
   /**
    * 获取文章详情（增强版，包含点赞收藏状态）
    */
-  // articleController.js
-
-  /**
-   * 获取文章详情（增强版，包含点赞收藏状态）
-   */
   getArticleDetail = asyncHandler(async (req, res, next) => {
     try {
       const { id } = req.params;
-      // ✅ 处理游客情况
       const isAdmin = req.user && req.user.role === 1;
       const userRole = isAdmin ? "admin" : "user";
       const userId = req.user ? req.user.id : null;
@@ -678,7 +673,6 @@ class ArticleController {
         return errorResponse(res, null, "文章不存在", 404);
       }
 
-      // ✅ 只有登录用户才能获取点赞/收藏状态
       let likeStatus = { isLiked: false };
       let collectStatus = { isCollected: false };
 
@@ -709,9 +703,8 @@ class ArticleController {
       const { userId } = req.params;
       const { page = 1, pageSize = 10 } = req.query;
 
-      const currentUserId = req.user.id; // ✅ 无需检查是否存在
+      const currentUserId = req.user.id;
 
-      // 权限检查：只能查看自己的点赞列表，或管理员可查看所有
       if (req.user.role !== 1 && parseInt(userId) !== currentUserId) {
         return errorResponse(res, null, "权限不足", 403);
       }
@@ -746,9 +739,8 @@ class ArticleController {
       const { userId } = req.params;
       const { page = 1, pageSize = 10 } = req.query;
 
-      const currentUserId = req.user.id; // ✅ 无需检查是否存在
+      const currentUserId = req.user.id;
 
-      // 权限检查：只能查看自己的收藏列表，或管理员可查看所有
       if (req.user.role !== 1 && parseInt(userId) !== currentUserId) {
         return errorResponse(res, null, "权限不足", 403);
       }
@@ -774,12 +766,12 @@ class ArticleController {
       next(err);
     }
   });
+
   /**
    * 获取用户待审核文章
    */
   getPendingArticles = asyncHandler(async (req, res, next) => {
     try {
-      // 添加用户认证检查
       if (!req.user) {
         return errorResponse(res, null, "用户未认证", 401);
       }
@@ -787,12 +779,10 @@ class ArticleController {
       const { userId } = req.params;
       const { page = 1, pageSize = 10 } = req.query;
 
-      // 安全校验：用户只能查看自己的待审核文章
       if (parseInt(userId) !== req.user.id) {
         return errorResponse(res, null, "无权查看他人的待审核文章", 403);
       }
 
-      // ✅ 修改：使用 articleService 而不是 userService
       const result = await articleService.getPendingArticles(
         parseInt(userId),
         parseInt(page),

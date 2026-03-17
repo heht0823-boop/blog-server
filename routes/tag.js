@@ -16,11 +16,9 @@ const { adminMiddleware } = require("../middleware/permission");
 
 // 获取标签列表
 router.get("/", validate(tagQueryValidator), TagController.getTags);
-router.get(
-  "/article/:articleId",
-  validate(articleTagsValidator),
-  TagController.getTagsByArticleId,
-);
+
+// ✅ 删除了 /article/:articleId 路由，已移到 article 路由
+
 // ===== 需要认证的接口 =====
 
 // 创建标签（需要管理员权限）
@@ -28,7 +26,7 @@ router.post(
   "/",
   authMiddleware,
   adminMiddleware,
-  tagCreateValidator, // 使用更新后的验证器
+  tagCreateValidator,
   TagController.createTag,
 );
 
