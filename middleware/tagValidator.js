@@ -7,6 +7,16 @@ const tagIdValidator = [
   param("id").isInt({ min: 1 }).withMessage("标签 ID 必须是正整数"),
 ];
 
+// ===== 文章 ID 参数验证（用于获取文章标签）=====
+const articleTagsValidator = [
+  param("articleId")
+    .exists()
+    .withMessage("文章 ID 不能为空")
+    .isInt({ min: 1 })
+    .withMessage("文章 ID 必须是正整数")
+    .toInt(),
+];
+
 // ===== 标签创建验证（支持批量）=====
 const tagCreateValidator = (req, res, next) => {
   const data = req.body;
@@ -77,4 +87,5 @@ module.exports = {
   tagCreateValidator,
   tagUpdateValidator,
   tagQueryValidator,
+  articleTagsValidator,
 };

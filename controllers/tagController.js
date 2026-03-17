@@ -1,4 +1,5 @@
 const tagService = require("../services/tagService");
+const articleService = require("../services/articleService");
 const {
   successResponse,
   errorResponse,
@@ -49,18 +50,33 @@ class TagController {
   });
 
   /**
-   * 获取单个标签
+   * ✅ 新增：获取文章下的标签列表
    */
-  getTag = asyncHandler(async (req, res, next) => {
-    const { id } = req.params;
+  getTagsByArticleId = asyncHandler(async (req, res, next) => {
+    try {
+      const { articleId } = req.params;
 
-    const tag = await tagService.getTagById(id);
+      // 验证文章是否存在
+      const article = await articleService.getArticleById(articleId, "user");
+      if (!article) {
+        return errorResponse(res, null, "文章不存在", 404);
+      }
 
-    if (!tag) {
-      return errorResponse(res, null, "标签不存在", 404);
+      // 获取文章下的所有标签
+      const tags = await articleService.getArticleTags(articleId);
+
+      successResponse(
+        res,
+        {
+          articleId: parseInt(articleId),
+          tags,
+          count: tags.length,
+        },
+        "获取文章标签成功",
+      );
+    } catch (err) {
+      next(err);
     }
-
-    successResponse(res, tag, "获取成功");
   });
 
   /**

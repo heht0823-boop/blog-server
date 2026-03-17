@@ -1,4 +1,3 @@
-// routes/tag.js
 const express = require("express");
 const router = express.Router();
 
@@ -17,9 +16,11 @@ const { adminMiddleware } = require("../middleware/permission");
 
 // 获取标签列表
 router.get("/", validate(tagQueryValidator), TagController.getTags);
-// 获取单个标签
-router.get("/:id", validate(tagIdValidator), TagController.getTag);
-
+router.get(
+  "/article/:articleId",
+  validate(articleTagsValidator),
+  TagController.getTagsByArticleId,
+);
 // ===== 需要认证的接口 =====
 
 // 创建标签（需要管理员权限）

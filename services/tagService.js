@@ -107,15 +107,6 @@ class TagService {
     return { total, tags };
   }
   /**
-   * 获取单个标签详情
-   */
-  async getTagById(tagId) {
-    const [tags] = await pool.query("SELECT * FROM tags WHERE id = ?", [tagId]);
-
-    return tags[0] || null;
-  }
-
-  /**
    * 根据名称获取标签
    */
   async getTagByName(name) {
